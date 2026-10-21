@@ -14,23 +14,23 @@ let currentData = null;
 const chartConfigs = {};
 
 const pollutantInfo = {
-  "OZONE": { label: "Ozone", note: "O₃" },
-  "PM2.5": { label: "PM2.5", note: "fine particles" },
-  "PM10": { label: "PM10", note: "coarse particles" }
+  "OZONE": { label: "Ozone", note: "O₃", css: "ozone" },
+  "PM2.5": { label: "PM2.5", note: "fine particles", css: "pm25" },
+  "PM10": { label: "PM10", note: "coarse particles", css: "pm10" }
 };
 
 const aqiCategories = [
-  { name: "Good", max: 50, range: "0–50", className: "aqi-good",
+  { name: "Good", short: "Good", max: 50, range: "0–50", className: "aqi-good", key: "good",
     text: "The air is fine and there's little or no risk." },
-  { name: "Moderate", max: 100, range: "51–100", className: "aqi-moderate",
+  { name: "Moderate", short: "Moderate", max: 100, range: "51–100", className: "aqi-moderate", key: "moderate",
     text: "The air is acceptable, but a few unusually sensitive people might notice it." },
-  { name: "Unhealthy for Sensitive Groups", max: 150, range: "101–150", className: "aqi-usg",
+  { name: "Unhealthy for Sensitive Groups", short: "Sensitive", max: 150, range: "101–150", className: "aqi-usg", key: "usg",
     text: "Kids, older adults, and people with heart or lung problems may feel it." },
-  { name: "Unhealthy", max: 200, range: "151–200", className: "aqi-unhealthy",
+  { name: "Unhealthy", short: "Unhealthy", max: 200, range: "151–200", className: "aqi-unhealthy", key: "unhealthy",
     text: "Everyone may start to feel some effects." },
-  { name: "Very Unhealthy", max: 300, range: "201–300", className: "aqi-very",
+  { name: "Very Unhealthy", short: "Very unhealthy", max: 300, range: "201–300", className: "aqi-very", key: "very",
     text: "This is a health warning. Everyone is more likely to be affected." },
-  { name: "Hazardous", max: 500, range: "301+", className: "aqi-hazardous",
+  { name: "Hazardous", short: "Hazardous", max: 500, range: "301+", className: "aqi-hazardous", key: "hazardous",
     text: "Emergency conditions. Everyone is likely to be affected." }
 ];
 
@@ -49,27 +49,35 @@ function el(tag, className, text) {
 
 function svgEl(name, attrs) {
   const node = document.createElementNS("http://www.w3.org/2000/svg", name);
-  for (const key in attrs) node.setAttribute(key, attrs[key]);
+  for (const key in attrs) {
+    node.setAttribute(key, attrs[key]);
+  }
   return node;
 }
 
 function getCategory(aqi) {
-  return aqiCategories.find(c => aqi <= c.max) || aqiCategories[aqiCategories.length - 1];
+  for (let i = 0; i < aqiCategories.length; i++) {
+    if (aqi <= aqiCategories[i].max) return aqiCategories[i];
+  }
+  return aqiCategories[aqiCategories.length - 1];
 }
 
 function pollutantLabel(key) {
-  return pollutantInfo[key] ? pollutantInfo[key].label : key;
+  if (pollutantInfo[key]) return pollutantInfo[key].label;
+  return key;
 }
 
 function parseDate(iso) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const parts = iso.split("-");
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
 }
 
 function toISO(date) {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return date.getFullYear() + "-" + m + "-" + d;
+  let month = String(date.getMonth() + 1);
+  let day = String(date.getDate());
+  if (month.length < 2) month = "0" + month;
+  if (day.length < 2) day = "0" + day;
+  return date.getFullYear() + "-" + month + "-" + day;
 }
 
 function addDays(iso, n) {
@@ -80,7 +88,11 @@ function addDays(iso, n) {
 
 function listDates(start, end) {
   const dates = [];
-  for (let d = start; d <= end; d = addDays(d, 1)) dates.push(d);
+  let day = start;
+  while (day <= end) {
+    dates.push(day);
+    day = addDays(day, 1);
+  }
   return dates;
 }
 
@@ -94,8 +106,10 @@ function fullDate(iso) {
 }
 
 function formatHour(hour) {
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return h + ":00 " + (hour < 12 ? "AM" : "PM");
+  let h = hour % 12;
+  if (h === 0) h = 12;
+  const ampm = hour < 12 ? "AM" : "PM";
+  return h + ":00 " + ampm;
 }
 
 function pseudoRandom(n) {
@@ -108,12 +122,15 @@ function countUp(node, target) {
     node.textContent = target;
     return;
   }
-  const start = performance.now();
+  const startTime = performance.now();
   const length = 700;
+
   function tick(now) {
-    const t = Math.min((now - start) / length, 1);
-    node.textContent = Math.round(target * (1 - Math.pow(1 - t, 3)));
-    if (t < 1) requestAnimationFrame(tick);
+    let progress = (now - startTime) / length;
+    if (progress > 1) progress = 1;
+    const eased = 1 - Math.pow(1 - progress, 3);
+    node.textContent = Math.round(target * eased);
+    if (progress < 1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 }
@@ -124,15 +141,22 @@ function countUp(node, target) {
 function isSupportedLocation(text) {
   const t = text.toLowerCase();
   const names = ["dallas", "fort worth", "dfw", "arlington", "plano", "irving", "frisco", "garland"];
-  return names.some(n => t.includes(n)) || /^7[56]\d{3}$/.test(t.trim());
+  for (let i = 0; i < names.length; i++) {
+    if (t.indexOf(names[i]) !== -1) return true;
+  }
+  return /^7[56]\d{3}$/.test(t.trim());
 }
 
 function makeSampleSeries(dates, base, swing, seed) {
-  return dates.map((date, i) => {
+  const series = [];
+  for (let i = 0; i < dates.length; i++) {
     const wave = Math.sin(i / 3 + seed) * swing * 0.6;
     const noise = (pseudoRandom(i + seed) - 0.5) * swing;
-    return { date: date, value: Math.max(5, Math.round(base + wave + noise)) };
-  });
+    let value = Math.round(base + wave + noise);
+    if (value < 5) value = 5;
+    series.push({ date: dates[i], value: value });
+  }
+  return series;
 }
 
 function makeEmptyData(locationName) {
@@ -146,39 +170,61 @@ function makeEmptyData(locationName) {
   };
 }
 
+function makeReading(parameter, aqi) {
+  const now = new Date();
+  return {
+    parameter: parameter,
+    aqi: aqi,
+    category: getCategory(aqi).name,
+    dateObserved: toISO(now),
+    hourObserved: now.getHours(),
+    timeZone: "CDT",
+    reportingArea: "Dallas-Fort Worth",
+    agency: "TCEQ"
+  };
+}
+
 function getSampleData(location, startDate, endDate) {
   const simulate = simulateSelect.value;
-  if (simulate === "no-data" || !isSupportedLocation(location)) return makeEmptyData(location);
+  if (simulate === "no-data" || !isSupportedLocation(location)) {
+    return makeEmptyData(location);
+  }
 
   const dates = listDates(startDate, endDate);
-  const pm25 = makeSampleSeries(dates, 38, 14, 1);
+  const pm25 = makeSampleSeries(dates, 62, 70, 1);
   const lastValue = pm25[pm25.length - 1].value;
 
   const futureDates = listDates(addDays(endDate, 1), addDays(endDate, 7));
-  const predictionPoints = futureDates.map((date, i) => {
-    const value = Math.round(lastValue * 0.6 + 38 * 0.4 + Math.sin(i / 2) * 6 + (pseudoRandom(i + 200) - 0.5) * 6);
-    return { date: date, value: value, low: Math.max(0, value - 8 - i), high: value + 8 + i };
-  });
+  const predictionPoints = [];
+  for (let i = 0; i < futureDates.length; i++) {
+    const wobble = Math.sin(i / 2) * 8 + (pseudoRandom(i + 200) - 0.5) * 8;
+    const value = Math.round(lastValue * 0.6 + 55 * 0.4 + wobble);
+    predictionPoints.push({
+      date: futureDates[i],
+      value: value,
+      low: Math.max(0, value - 8 - i),
+      high: value + 8 + i
+    });
+  }
 
-  const validationPoints = pm25.slice(-14).map((p, i) => ({
-    date: p.date,
-    actual: p.value,
-    predicted: Math.max(0, p.value + Math.round((pseudoRandom(i + 300) - 0.5) * 14))
-  }));
+  const validationPoints = [];
+  const lastTwoWeeks = pm25.slice(-14);
+  for (let i = 0; i < lastTwoWeeks.length; i++) {
+    const guess = lastTwoWeeks[i].value + Math.round((pseudoRandom(i + 300) - 0.5) * 18);
+    validationPoints.push({
+      date: lastTwoWeeks[i].date,
+      actual: lastTwoWeeks[i].value,
+      predicted: Math.max(0, guess)
+    });
+  }
 
   const now = new Date();
-  const reading = (parameter, aqi) => ({
-    parameter: parameter, aqi: aqi, category: getCategory(aqi).name,
-    dateObserved: toISO(now), hourObserved: now.getHours(), timeZone: "CDT",
-    reportingArea: "Dallas-Fort Worth", agency: "TCEQ"
-  });
-
   const data = {
     location: { name: "Dallas-Fort Worth, TX" },
     airQuality: {
       status: "ok",
       source: "EPA AirNow / Texas Commission on Environmental Quality",
-      pollutants: [reading("OZONE", 44), reading("PM2.5", 44), reading("PM10", 22)]
+      pollutants: [makeReading("OZONE", 44), makeReading("PM2.5", 44), makeReading("PM10", 22)]
     },
     weather: {
       status: "ok",
@@ -198,15 +244,17 @@ function getSampleData(location, startDate, endDate) {
       status: "ok",
       series: {
         "PM2.5": pm25,
-        "OZONE": makeSampleSeries(dates, 42, 18, 50),
-        "PM10": makeSampleSeries(dates, 30, 10, 100)
+        "OZONE": makeSampleSeries(dates, 55, 50, 50),
+        "PM10": makeSampleSeries(dates, 30, 16, 100)
       }
     },
     prediction: { status: "ok", isPlaceholder: true, points: predictionPoints },
     validation: { status: "ok", metrics: null, points: validationPoints }
   };
 
-  if (simulate === "no-weather") data.weather = { status: "unavailable" };
+  if (simulate === "no-weather") {
+    data.weather = { status: "unavailable" };
+  }
   if (simulate === "no-model") {
     data.prediction = { status: "not_connected" };
     data.validation = { status: "not_connected" };
@@ -217,7 +265,17 @@ function getSampleData(location, startDate, endDate) {
 
 /* talking to the backend */
 
-// The backend's /dashboard response uses snake_case and metric units.
+function formatObserved(iso) {
+  const hour = parseInt((iso || "").slice(11, 13), 10);
+  if (isNaN(hour)) return "recently";
+  return formatHour(hour) + " CT";
+}
+
+function hasValue(v) {
+  return v !== null && v !== undefined;
+}
+
+// The backend's /dashboard response is snake_case and metric.
 // This turns it into the shape the rest of this file draws from.
 // Anything the backend doesn't send yet just shows a "not connected" message.
 function fromBackend(raw, locationName) {
@@ -225,49 +283,93 @@ function fromBackend(raw, locationName) {
   const wx = raw.weather || {};
   const stamp = raw.timestamp || "";
 
-  const pollutants = [["OZONE", "ozone_aqi"], ["PM2.5", "pm25_aqi"], ["PM10", "pm10_aqi"]]
-    .filter(pair => aq[pair[1]] !== null && aq[pair[1]] !== undefined)
-    .map(pair => ({
-      parameter: pair[0],
-      aqi: aq[pair[1]],
-      category: getCategory(aq[pair[1]]).name,
+  const pairs = [["OZONE", "ozone_aqi"], ["PM2.5", "pm25_aqi"], ["PM10", "pm10_aqi"]];
+  const pollutants = [];
+  for (let i = 0; i < pairs.length; i++) {
+    const aqi = aq[pairs[i][1]];
+    if (!hasValue(aqi)) continue;
+    pollutants.push({
+      parameter: pairs[i][0],
+      aqi: aqi,
+      category: getCategory(aqi).name,
       dateObserved: stamp.slice(0, 10),
       hourObserved: parseInt(stamp.slice(11, 13), 10),
       timeZone: "CT",
       agency: "TCEQ"
-    }));
+    });
+  }
 
-  const has = v => v !== null && v !== undefined;
   const weatherValues = [];
-  if (has(wx.temperature_c))  weatherValues.push({ label: "Temperature", value: Math.round(wx.temperature_c * 9 / 5 + 32), unit: "°F" });
-  if (has(wx.humidity_pct))   weatherValues.push({ label: "Humidity", value: Math.round(wx.humidity_pct), unit: "%" });
-  if (has(wx.pressure_pa))    weatherValues.push({ label: "Pressure", value: +(wx.pressure_pa * 0.0002953).toFixed(2), unit: "inHg" });
-  if (has(wx.visibility_m))   weatherValues.push({ label: "Visibility", value: Math.round(wx.visibility_m / 1609.34), unit: "mi" });
-  if (has(wx.wind_speed_kmh)) weatherValues.push({ label: "Wind speed", value: Math.round(wx.wind_speed_kmh * 0.6214), unit: "mph" });
-  if (has(wx.wind_direction_deg)) {
+  if (hasValue(wx.temperature_c)) {
+    weatherValues.push({ label: "Temperature", value: Math.round(wx.temperature_c * 9 / 5 + 32), unit: "°F" });
+  }
+  if (hasValue(wx.humidity_pct)) {
+    weatherValues.push({ label: "Humidity", value: Math.round(wx.humidity_pct), unit: "%" });
+  }
+  if (hasValue(wx.pressure_pa)) {
+    weatherValues.push({ label: "Pressure", value: Number((wx.pressure_pa * 0.0002953).toFixed(2)), unit: "inHg" });
+  }
+  if (hasValue(wx.visibility_m)) {
+    weatherValues.push({ label: "Visibility", value: Math.round(wx.visibility_m / 1609.34), unit: "mi" });
+  }
+  if (hasValue(wx.wind_speed_kmh)) {
+    weatherValues.push({ label: "Wind speed", value: Math.round(wx.wind_speed_kmh * 0.6214), unit: "mph" });
+  }
+  if (hasValue(wx.wind_direction_deg)) {
     const dir = compass[Math.round(wx.wind_direction_deg / 22.5) % 16];
     weatherValues.push({ label: "Wind direction", value: dir + " (" + Math.round(wx.wind_direction_deg) + "°)", unit: "" });
   }
 
-  const pred = raw.prediction;
-  const predPoints = pred ? (Array.isArray(pred) ? pred : pred.points) : null;
+  let airQuality = { status: "no_data" };
+  if (pollutants.length > 0) {
+    airQuality = { status: "ok", source: "EPA AirNow / TCEQ", pollutants: pollutants };
+  }
+
+  let weather = { status: "unavailable" };
+  if (weatherValues.length > 0) {
+    weather = {
+      status: "ok",
+      source: "NOAA / National Weather Service",
+      station: wx.station_id || "KDFW",
+      observedAt: formatObserved(wx.observed_at || stamp),
+      values: weatherValues
+    };
+  }
+
+  let historical = { status: "not_connected" };
+  if (raw.historical) {
+    historical = {
+      status: "ok",
+      series: raw.historical.series || raw.historical,
+      source: raw.historical.source
+    };
+  }
+
+  let prediction = { status: "not_connected" };
+  if (raw.prediction) {
+    let points = raw.prediction.points;
+    if (Array.isArray(raw.prediction)) points = raw.prediction;
+    if (points && points.length > 0) {
+      prediction = { status: "ok", isPlaceholder: false, points: points };
+    }
+  }
+
+  let validation = { status: "not_connected" };
+  if (raw.validation) {
+    validation = {
+      status: "ok",
+      metrics: raw.validation.metrics || null,
+      points: raw.validation.points || []
+    };
+  }
 
   return {
     location: { name: raw.location || locationName },
-    airQuality: pollutants.length
-      ? { status: "ok", source: "EPA AirNow / TCEQ", pollutants: pollutants }
-      : { status: "no_data" },
-    weather: weatherValues.length
-      ? { status: "ok", source: "NOAA / National Weather Service", station: wx.station_id || "KDFW",
-          observedAt: stamp.slice(11, 16), values: weatherValues }
-      : { status: "unavailable" },
-    historical: raw.historical ? { status: "ok", series: raw.historical } : { status: "not_connected" },
-    prediction: predPoints && predPoints.length
-      ? { status: "ok", isPlaceholder: false, points: predPoints }
-      : { status: "not_connected" },
-    validation: raw.validation
-      ? { status: "ok", metrics: raw.validation.metrics || null, points: raw.validation.points || [] }
-      : { status: "not_connected" }
+    airQuality: airQuality,
+    weather: weather,
+    historical: historical,
+    prediction: prediction,
+    validation: validation
   };
 }
 
@@ -280,8 +382,12 @@ async function getDashboardData(location, startDate, endDate) {
   const url = API_URL + "?location=" + encodeURIComponent(location) + "&start=" + startDate + "&end=" + endDate;
   const response = await fetch(url);
   if (!response.ok) throw new Error("Backend returned " + response.status);
+
   const raw = await response.json();
-  return raw.air_quality || raw.weather ? fromBackend(raw, location) : raw;
+  if (raw.air_quality || raw.weather) {
+    return fromBackend(raw, location);
+  }
+  return raw;
 }
 
 
@@ -311,9 +417,22 @@ const noDataDetail = "Try a different location or dates and run it again.";
 
 /* updating the page */
 
+// the whole page leans toward the color of the worst pollutant
+function setPageColor(category) {
+  if (category) {
+    document.body.setAttribute("data-aqi", category.key);
+  } else {
+    document.body.removeAttribute("data-aqi");
+  }
+}
+
 function updateAirQuality(data) {
   const aq = data.airQuality;
-  document.getElementById("aq-location").textContent = data.location ? "Reporting area: " + data.location.name : "";
+  if (data.location) {
+    document.getElementById("aq-location").textContent = "Reporting area: " + data.location.name;
+  } else {
+    document.getElementById("aq-location").textContent = "";
+  }
 
   if (!aq || aq.status !== "ok" || !aq.pollutants || aq.pollutants.length === 0) {
     setPanelState("air-quality-panel", noDataTitle, noDataDetail);
@@ -324,12 +443,17 @@ function updateAirQuality(data) {
   const grid = document.getElementById("pollutant-grid");
   grid.innerHTML = "";
 
-  aq.pollutants.forEach((p, i) => {
-    const info = pollutantInfo[p.parameter] || { label: p.parameter, note: "" };
+  for (let i = 0; i < aq.pollutants.length; i++) {
+    const p = aq.pollutants[i];
+    let info = pollutantInfo[p.parameter];
+    if (!info) info = { label: p.parameter, note: "", css: "" };
+
     const card = el("div", "pollutant-card " + getCategory(p.aqi).className);
     card.style.animationDelay = i * 90 + "ms";
 
-    const title = el("h3", "", info.label);
+    const title = el("h3", "pol-name-" + info.css);
+    title.appendChild(el("span", "pol-dot"));
+    title.appendChild(el("span", "pol-label", info.label));
     if (info.note) title.appendChild(el("span", "pollutant-note", info.note));
     card.appendChild(title);
 
@@ -343,12 +467,37 @@ function updateAirQuality(data) {
     card.appendChild(el("p", "aqi-category", p.category));
     card.appendChild(el("p", "card-meta", "Observed " + formatHour(p.hourObserved) + " " + p.timeZone));
     grid.appendChild(card);
-  });
+  }
 
   const latest = aq.pollutants[0];
   document.getElementById("aq-source").textContent =
     "Last updated " + fullDate(latest.dateObserved) + " at " + formatHour(latest.hourObserved) + " " + latest.timeZone +
     ". Source: " + aq.source + ".";
+}
+
+// a little color on the weather numbers so hot days and low visibility stand out
+function weatherColorClass(item) {
+  if (typeof item.value !== "number") return "";
+
+  if (item.label === "Temperature") {
+    if (item.value < 32) return "temp-freezing";
+    if (item.value < 50) return "temp-cold";
+    if (item.value < 65) return "temp-cool";
+    if (item.value < 80) return "temp-mild";
+    if (item.value < 90) return "temp-warm";
+    if (item.value < 100) return "temp-hot";
+    return "temp-extreme";
+  }
+  if (item.label === "Humidity") {
+    if (item.value < 30) return "humid-dry";
+    if (item.value > 70) return "humid-wet";
+    return "humid-ok";
+  }
+  if (item.label === "Visibility") {
+    if (item.value < 3) return "temp-extreme";
+    if (item.value < 6) return "temp-warm";
+  }
+  return "";
 }
 
 function updateWeather(data) {
@@ -364,7 +513,8 @@ function updateWeather(data) {
   const list = document.getElementById("weather-list");
   list.innerHTML = "";
 
-  w.values.forEach(item => {
+  for (let i = 0; i < w.values.length; i++) {
+    const item = w.values[i];
     const row = el("div", "weather-item");
     row.appendChild(el("dt", "", item.label));
 
@@ -372,21 +522,28 @@ function updateWeather(data) {
     if (item.value === null || item.value === undefined) {
       dd.appendChild(el("span", "not-reported", "Not reported"));
     } else {
-      const shown = typeof item.value === "number" ? item.value.toLocaleString("en-US") : item.value;
-      dd.appendChild(document.createTextNode(shown));
+      let shown = item.value;
+      if (typeof item.value === "number") shown = item.value.toLocaleString("en-US");
+
+      const colorClass = weatherColorClass(item);
+      if (colorClass) {
+        dd.appendChild(el("span", colorClass, String(shown)));
+      } else {
+        dd.appendChild(document.createTextNode(shown));
+      }
       if (item.unit) dd.appendChild(el("span", "unit", item.unit));
     }
     row.appendChild(dd);
     list.appendChild(row);
-  });
+  }
 
   document.getElementById("weather-source").textContent =
     "Source: " + w.source + ". Station " + w.station + ", observed " + w.observedAt + ".";
 }
 
 function updateHistorical() {
-  const h = currentData && currentData.historical;
-  const pollutant = pollutantSelect.value;
+  const h = currentData ? currentData.historical : null;
+  const choice = pollutantSelect.value;
   const subtitle = document.getElementById("historical-subtitle");
 
   if (h && h.status === "not_connected") {
@@ -396,23 +553,69 @@ function updateHistorical() {
     return;
   }
 
-  const points = h && h.status === "ok" && h.series ? h.series[pollutant] : null;
-  if (!points || points.length < 2) {
+  // which pollutants are we drawing?
+  let keys = [choice];
+  if (choice === "ALL") keys = ["OZONE", "PM2.5", "PM10"];
+
+  const lines = [];
+  let firstDates = null;
+  if (h && h.status === "ok" && h.series) {
+    for (let i = 0; i < keys.length; i++) {
+      const points = h.series[keys[i]];
+      if (points && points.length >= 2) {
+        lines.push({ key: keys[i], points: points });
+        if (!firstDates) firstDates = points;
+      }
+    }
+  }
+
+  if (lines.length === 0) {
     subtitle.textContent = "";
     setPanelState("historical-panel", noDataTitle, noDataDetail);
     return;
   }
   setPanelState("historical-panel", null);
 
-  const label = pollutantLabel(pollutant);
-  subtitle.textContent = "Daily " + label + " AQI, " + shortDate(points[0].date) + " to " + fullDate(points[points.length - 1].date);
+  document.getElementById("historical-source").textContent = h.source ? "Source: " + h.source + "." : "";
+
+  const dates = [];
+  for (let i = 0; i < firstDates.length; i++) {
+    dates.push(firstDates[i].date);
+  }
+  const range = shortDate(dates[0]) + " to " + fullDate(dates[dates.length - 1]);
+
+  const chartSeries = [];
+  const legendItems = [];
+  for (let i = 0; i < lines.length; i++) {
+    const info = pollutantInfo[lines[i].key] || { label: lines[i].key, css: "" };
+    const values = [];
+    for (let j = 0; j < lines[i].points.length; j++) {
+      values.push(lines[i].points[j].value);
+    }
+    chartSeries.push({
+      name: info.label,
+      className: "series-" + info.css,
+      area: lines.length === 1,
+      colorDots: lines.length === 1,
+      values: values
+    });
+    legendItems.push({ name: info.label, className: "series-" + info.css });
+  }
+
+  if (lines.length === 1) {
+    const label = chartSeries[0].name;
+    subtitle.textContent = "Daily " + label + " AQI, " + range;
+    legendItems[0].name = label + " AQI (daily), dots colored by air quality level";
+  } else {
+    subtitle.textContent = "Daily AQI for all three pollutants, " + range;
+  }
 
   drawChart("historical-chart", {
-    labels: points.map(p => p.date),
-    ariaLabel: "Line chart of daily " + label + " AQI over the selected dates",
-    series: [{ name: label + " AQI", className: "series-actual", area: true, values: points.map(p => p.value) }]
+    labels: dates,
+    ariaLabel: "Line chart of daily AQI over the selected dates",
+    series: chartSeries
   });
-  drawLegend("historical-legend", [{ name: label + " AQI (daily)", className: "series-actual" }]);
+  drawLegend("historical-legend", legendItems);
 }
 
 function updatePrediction(data) {
@@ -434,20 +637,39 @@ function updatePrediction(data) {
   document.getElementById("prediction-notice").hidden = !p.isPlaceholder;
   subtitle.textContent = "PM2.5 AQI, next " + p.points.length + " days";
 
-  const history = data.historical && data.historical.status === "ok" ? (data.historical.series["PM2.5"] || []) : [];
+  let history = [];
+  if (data.historical && data.historical.status === "ok") {
+    history = data.historical.series["PM2.5"] || [];
+  }
   const recent = history.slice(-5);
-  const blanks = recent.map(() => null);
+
+  const labels = [];
+  const recentValues = [];
+  const predValues = [];
+  const lows = [];
+  const highs = [];
+
+  for (let i = 0; i < recent.length; i++) {
+    labels.push(recent[i].date);
+    recentValues.push(recent[i].value);
+    predValues.push(null);
+    lows.push(null);
+    highs.push(null);
+  }
+  for (let i = 0; i < p.points.length; i++) {
+    labels.push(p.points[i].date);
+    recentValues.push(null);
+    predValues.push(p.points[i].value);
+    lows.push(p.points[i].low);
+    highs.push(p.points[i].high);
+  }
 
   drawChart("prediction-chart", {
-    labels: recent.map(r => r.date).concat(p.points.map(x => x.date)),
+    labels: labels,
     ariaLabel: "Line chart of predicted PM2.5 AQI for the next few days",
     series: [
-      { name: "Recent actual", className: "series-context",
-        values: recent.map(r => r.value).concat(p.points.map(() => null)) },
-      { name: "Prediction", className: "series-predicted",
-        values: blanks.concat(p.points.map(x => x.value)),
-        low: blanks.concat(p.points.map(x => x.low)),
-        high: blanks.concat(p.points.map(x => x.high)) }
+      { name: "Recent actual", className: "series-context", values: recentValues },
+      { name: "Prediction", className: "series-predicted", values: predValues, low: lows, high: highs }
     ]
   });
   drawLegend("prediction-legend", [
@@ -473,13 +695,22 @@ function updateValidation(data) {
   setPanelState("validation-panel", null);
   document.getElementById("validation-subtitle").textContent = "Last " + v.points.length + " days, PM2.5 AQI";
 
+  const dates = [];
+  const actual = [];
+  const predicted = [];
+  for (let i = 0; i < v.points.length; i++) {
+    dates.push(v.points[i].date);
+    actual.push(v.points[i].actual);
+    predicted.push(v.points[i].predicted);
+  }
+
   drawChart("validation-chart", {
     height: 220,
-    labels: v.points.map(p => p.date),
+    labels: dates,
     ariaLabel: "Line chart comparing actual and predicted PM2.5 AQI",
     series: [
-      { name: "Actual", className: "series-actual", values: v.points.map(p => p.actual) },
-      { name: "Predicted", className: "series-predicted", values: v.points.map(p => p.predicted) }
+      { name: "Actual", className: "series-actual", values: actual },
+      { name: "Predicted", className: "series-predicted", values: predicted }
     ]
   });
   drawLegend("validation-legend", [
@@ -487,39 +718,58 @@ function updateValidation(data) {
     { name: "Predicted", className: "series-predicted" }
   ]);
 
-  note.textContent = v.metrics
-    ? "MAE: " + v.metrics.mae + "  |  RMSE: " + v.metrics.rmse
-    : "Placeholder: accuracy numbers (MAE and RMSE) will go here once the ML team finishes testing.";
+  if (v.metrics) {
+    note.textContent = "MAE: " + v.metrics.mae + "  |  RMSE: " + v.metrics.rmse;
+  } else {
+    note.textContent = "Placeholder: accuracy numbers (MAE and RMSE) will go here once the ML team finishes testing.";
+  }
+}
+
+function drawAqiScale(currentKey) {
+  const list = document.getElementById("aqi-scale");
+  list.innerHTML = "";
+
+  for (let i = 0; i < aqiCategories.length; i++) {
+    const c = aqiCategories[i];
+    const item = el("li", c.className);
+    item.appendChild(el("span", "scale-swatch"));
+    item.appendChild(el("span", "", c.name));
+
+    if (c.key === currentKey) {
+      item.classList.add("is-current");
+      item.appendChild(el("span", "now-tag", "Now"));
+    }
+    item.appendChild(el("span", "scale-range", c.range));
+    list.appendChild(item);
+  }
 }
 
 function updateSummary(data) {
   const aq = data.airQuality;
+  const main = document.getElementById("summary-main");
 
   if (!aq || aq.status !== "ok" || !aq.pollutants || aq.pollutants.length === 0) {
     setPanelState("summary-panel", "No summary yet", noDataTitle + ".");
+    setPageColor(null);
+    drawAqiScale(null);
     return;
   }
   setPanelState("summary-panel", null);
 
   // whichever pollutant is worst sets the overall rating
-  const worst = aq.pollutants.reduce((a, b) => (b.aqi > a.aqi ? b : a));
+  let worst = aq.pollutants[0];
+  for (let i = 1; i < aq.pollutants.length; i++) {
+    if (aq.pollutants[i].aqi > worst.aqi) worst = aq.pollutants[i];
+  }
   const category = getCategory(worst.aqi);
 
-  document.getElementById("summary-main").textContent =
-    "Air quality in " + data.location.name + " is " + category.name.toLowerCase() + " right now.";
+  main.className = "summary-main " + category.className;
+  main.textContent = "Air quality in " + data.location.name + " is " + category.name.toLowerCase() + " right now.";
   document.getElementById("summary-detail").textContent =
     category.text + " The highest reading is " + pollutantLabel(worst.parameter) + " at an AQI of " + worst.aqi + ".";
-}
 
-function renderAqiScale() {
-  const list = document.getElementById("aqi-scale");
-  aqiCategories.forEach(c => {
-    const item = el("li", c.className);
-    item.appendChild(el("span", "scale-swatch"));
-    item.appendChild(el("span", "", c.name));
-    item.appendChild(el("span", "scale-range", c.range));
-    list.appendChild(item);
-  });
+  setPageColor(category);
+  drawAqiScale(category.key);
 }
 
 function renderDashboard(data) {
@@ -539,42 +789,57 @@ function renderDashboard(data) {
 function linePath(values, xPos, yPos) {
   let d = "";
   let penDown = false;
-  values.forEach((v, i) => {
-    if (v === null || v === undefined) { penDown = false; return; }
-    d += (penDown ? " L " : " M ") + xPos(i).toFixed(1) + " " + yPos(v).toFixed(1);
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] === null || values[i] === undefined) {
+      penDown = false;
+      continue;
+    }
+    d += (penDown ? " L " : " M ") + xPos(i).toFixed(1) + " " + yPos(values[i]).toFixed(1);
     penDown = true;
-  });
+  }
   return d;
 }
 
 function areaPath(values, xPos, yPos, baseline) {
-  const idx = [];
-  values.forEach((v, i) => { if (v != null) idx.push(i); });
-  if (idx.length < 2) return "";
-  let d = "M " + xPos(idx[0]).toFixed(1) + " " + baseline;
-  idx.forEach(i => { d += " L " + xPos(i).toFixed(1) + " " + yPos(values[i]).toFixed(1); });
-  return d + " L " + xPos(idx[idx.length - 1]).toFixed(1) + " " + baseline + " Z";
+  const used = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] !== null && values[i] !== undefined) used.push(i);
+  }
+  if (used.length < 2) return "";
+
+  let d = "M " + xPos(used[0]).toFixed(1) + " " + baseline;
+  for (let i = 0; i < used.length; i++) {
+    d += " L " + xPos(used[i]).toFixed(1) + " " + yPos(values[used[i]]).toFixed(1);
+  }
+  d += " L " + xPos(used[used.length - 1]).toFixed(1) + " " + baseline + " Z";
+  return d;
 }
 
 function bandPath(low, high, xPos, yPos) {
-  const idx = [];
-  high.forEach((v, i) => { if (v != null && low[i] != null) idx.push(i); });
-  if (idx.length === 0) return "";
+  const used = [];
+  for (let i = 0; i < high.length; i++) {
+    if (high[i] != null && low[i] != null) used.push(i);
+  }
+  if (used.length === 0) return "";
 
   let d = "";
-  idx.forEach((i, k) => {
-    d += (k === 0 ? "M " : " L ") + xPos(i).toFixed(1) + " " + yPos(high[i]).toFixed(1);
-  });
-  idx.slice().reverse().forEach(i => {
-    d += " L " + xPos(i).toFixed(1) + " " + yPos(low[i]).toFixed(1);
-  });
+  for (let k = 0; k < used.length; k++) {
+    d += (k === 0 ? "M " : " L ") + xPos(used[k]).toFixed(1) + " " + yPos(high[used[k]]).toFixed(1);
+  }
+  for (let k = used.length - 1; k >= 0; k--) {
+    d += " L " + xPos(used[k]).toFixed(1) + " " + yPos(low[used[k]]).toFixed(1);
+  }
   return d + " Z";
 }
 
 function drawChart(id, config) {
   chartConfigs[id] = config;
   const box = document.getElementById(id);
-  box.querySelectorAll("svg").forEach(svg => svg.remove());
+
+  const oldCharts = box.querySelectorAll("svg");
+  for (let i = 0; i < oldCharts.length; i++) {
+    oldCharts[i].remove();
+  }
 
   const width = box.clientWidth;
   if (width === 0) return; // panel is hidden right now
@@ -585,30 +850,53 @@ function drawChart(id, config) {
   const plotH = height - margin.top - margin.bottom;
   const count = config.labels.length;
 
-  const allValues = [];
-  config.series.forEach(s => {
-    allValues.push(...s.values);
-    if (s.high) allValues.push(...s.high);
-  });
-  const maxValue = Math.max(...allValues.filter(v => v != null));
-  const roughMax = Math.max(60, maxValue * 1.1);
-  const step = roughMax <= 100 ? 20 : roughMax <= 200 ? 50 : 100;
+  // find the biggest number so the y axis fits it
+  let maxValue = 0;
+  for (let s = 0; s < config.series.length; s++) {
+    const series = config.series[s];
+    for (let i = 0; i < series.values.length; i++) {
+      if (series.values[i] != null && series.values[i] > maxValue) maxValue = series.values[i];
+      if (series.high && series.high[i] != null && series.high[i] > maxValue) maxValue = series.high[i];
+    }
+  }
+  let roughMax = maxValue * 1.1;
+  if (roughMax < 60) roughMax = 60;
+
+  let step = 100;
+  if (roughMax <= 100) step = 20;
+  else if (roughMax <= 200) step = 50;
   const yMax = Math.ceil(roughMax / step) * step;
 
-  const xPos = i => margin.left + (count === 1 ? plotW / 2 : (i / (count - 1)) * plotW);
-  const yPos = v => margin.top + plotH - (v / yMax) * plotH;
+  function xPos(i) {
+    if (count === 1) return margin.left + plotW / 2;
+    return margin.left + (i / (count - 1)) * plotW;
+  }
+  function yPos(v) {
+    return margin.top + plotH - (v / yMax) * plotH;
+  }
 
   const svg = svgEl("svg", { width: width, height: height, role: "img", "aria-label": config.ariaLabel });
 
-  [{ from: 0, to: 50, cls: "band-good", label: "Good" },
-   { from: 50, to: 100, cls: "band-moderate", label: "Moderate" }].forEach(b => {
-    if (b.from >= yMax) return;
-    const top = Math.min(b.to, yMax);
-    svg.appendChild(svgEl("rect", { x: margin.left, y: yPos(top), width: plotW, height: yPos(b.from) - yPos(top), class: b.cls }));
-    const text = svgEl("text", { x: margin.left + 6, y: yPos(top) + 13, class: "band-label" });
-    text.textContent = b.label;
-    svg.appendChild(text);
-  });
+  // one soft color band for each AQI level, so you can see where a line sits
+  let bandBottom = 0;
+  for (let i = 0; i < aqiCategories.length; i++) {
+    const cat = aqiCategories[i];
+    const from = bandBottom;
+    bandBottom = cat.max;
+    if (from >= yMax) break;
+
+    const top = Math.min(cat.max, yMax);
+    const bandHeight = yPos(from) - yPos(top);
+    svg.appendChild(svgEl("rect", {
+      x: margin.left, y: yPos(top), width: plotW, height: bandHeight, class: "band " + cat.className
+    }));
+
+    if (bandHeight > 16) {
+      const text = svgEl("text", { x: margin.left + plotW - 6, y: yPos(top) + 13, "text-anchor": "end", class: "band-label" });
+      text.textContent = cat.short;
+      svg.appendChild(text);
+    }
+  }
 
   for (let v = 0; v <= yMax; v += step) {
     svg.appendChild(svgEl("line", { x1: margin.left, x2: margin.left + plotW, y1: yPos(v), y2: yPos(v), class: "grid-line" }));
@@ -617,7 +905,8 @@ function drawChart(id, config) {
     svg.appendChild(label);
   }
 
-  const maxTicks = width < 480 ? 4 : 7;
+  let maxTicks = 7;
+  if (width < 480) maxTicks = 4;
   const tickStep = Math.ceil(count / maxTicks);
   for (let i = 0; i < count; i += tickStep) {
     const label = svgEl("text", { x: xPos(i), y: height - 8, "text-anchor": "middle", class: "axis-label" });
@@ -625,18 +914,30 @@ function drawChart(id, config) {
     svg.appendChild(label);
   }
 
-  config.series.forEach(s => {
-    const group = svgEl("g", { class: "series " + s.className });
-    if (s.area) group.appendChild(svgEl("path", { d: areaPath(s.values, xPos, yPos, yPos(0)), class: "series-area" }));
-    if (s.low && s.high) group.appendChild(svgEl("path", { d: bandPath(s.low, s.high, xPos, yPos), class: "series-band" }));
-    group.appendChild(svgEl("path", { d: linePath(s.values, xPos, yPos), class: "series-line" }));
-    if (count <= 16) {
-      s.values.forEach((v, i) => {
-        if (v != null) group.appendChild(svgEl("circle", { cx: xPos(i), cy: yPos(v), r: 2.5, class: "series-dot" }));
-      });
+  for (let s = 0; s < config.series.length; s++) {
+    const series = config.series[s];
+    const group = svgEl("g", { class: "series " + series.className });
+
+    if (series.area) {
+      group.appendChild(svgEl("path", { d: areaPath(series.values, xPos, yPos, yPos(0)), class: "series-area" }));
+    }
+    if (series.low && series.high) {
+      group.appendChild(svgEl("path", { d: bandPath(series.low, series.high, xPos, yPos), class: "series-band" }));
+    }
+    group.appendChild(svgEl("path", { d: linePath(series.values, xPos, yPos), class: "series-line" }));
+
+    if (count <= 16 || series.colorDots) {
+      for (let i = 0; i < series.values.length; i++) {
+        const v = series.values[i];
+        if (v == null) continue;
+
+        let dotClass = "series-dot";
+        if (series.colorDots) dotClass += " colored " + getCategory(v).className;
+        group.appendChild(svgEl("circle", { cx: xPos(i), cy: yPos(v), r: series.colorDots ? 3 : 2.5, class: dotClass }));
+      }
     }
     svg.appendChild(group);
-  });
+  }
 
   const tooltip = box.querySelector(".tooltip");
   const hoverLine = svgEl("line", { y1: margin.top, y2: margin.top + plotH, class: "hover-line" });
@@ -646,10 +947,14 @@ function drawChart(id, config) {
   const overlay = svgEl("rect", { x: margin.left, y: margin.top, width: plotW, height: plotH, fill: "transparent" });
   svg.appendChild(overlay);
 
-  overlay.addEventListener("pointermove", event => {
+  overlay.addEventListener("pointermove", function (event) {
     const rect = svg.getBoundingClientRect();
-    let i = count === 1 ? 0 : Math.round(((event.clientX - rect.left - margin.left) / plotW) * (count - 1));
-    i = Math.max(0, Math.min(count - 1, i));
+    let i = 0;
+    if (count > 1) {
+      i = Math.round(((event.clientX - rect.left - margin.left) / plotW) * (count - 1));
+    }
+    if (i < 0) i = 0;
+    if (i > count - 1) i = count - 1;
 
     hoverLine.setAttribute("x1", xPos(i));
     hoverLine.setAttribute("x2", xPos(i));
@@ -657,17 +962,34 @@ function drawChart(id, config) {
 
     tooltip.innerHTML = "";
     tooltip.appendChild(el("strong", "", fullDate(config.labels[i])));
-    config.series.forEach(s => {
-      if (s.values[i] == null) return;
-      let text = s.name + ": " + s.values[i];
-      if (s.low && s.low[i] != null) text += " (range " + s.low[i] + "–" + s.high[i] + ")";
-      tooltip.appendChild(el("div", "", text));
-    });
+    const multi = config.series.length > 1;
+
+    for (let s = 0; s < config.series.length; s++) {
+      const series = config.series[s];
+      const v = series.values[i];
+      if (v == null) continue;
+
+      const cat = getCategory(v);
+      let text = series.name + ": " + v + " (" + cat.short + ")";
+      if (series.low && series.low[i] != null) {
+        text += ", range " + series.low[i] + "–" + series.high[i];
+      }
+
+      const line = el("div", "tip-line " + cat.className);
+      line.appendChild(el("span", multi ? "tip-dot " + series.className : "tip-dot"));
+      line.appendChild(document.createTextNode(text));
+      tooltip.appendChild(line);
+    }
+
     tooltip.hidden = false;
-    tooltip.style.left = (xPos(i) > width / 2 ? xPos(i) - tooltip.offsetWidth - 10 : xPos(i) + 10) + "px";
+    if (xPos(i) > width / 2) {
+      tooltip.style.left = (xPos(i) - tooltip.offsetWidth - 10) + "px";
+    } else {
+      tooltip.style.left = (xPos(i) + 10) + "px";
+    }
   });
 
-  overlay.addEventListener("pointerleave", () => {
+  overlay.addEventListener("pointerleave", function () {
     tooltip.hidden = true;
     hoverLine.style.display = "none";
   });
@@ -678,12 +1000,12 @@ function drawChart(id, config) {
 function drawLegend(id, items) {
   const legend = document.getElementById(id);
   legend.innerHTML = "";
-  items.forEach(item => {
+  for (let i = 0; i < items.length; i++) {
     const entry = el("span", "legend-item");
-    entry.appendChild(el("span", "swatch " + item.className));
-    entry.appendChild(document.createTextNode(item.name));
+    entry.appendChild(el("span", "swatch " + items[i].className));
+    entry.appendChild(document.createTextNode(items[i].name));
     legend.appendChild(entry);
-  });
+  }
 }
 
 
@@ -722,7 +1044,8 @@ async function analyze() {
   setLoading(true);
 
   try {
-    renderDashboard(await getDashboardData(location, start, end));
+    const data = await getDashboardData(location, start, end);
+    renderDashboard(data);
   } catch (error) {
     console.error(error);
     showFormMessage("Couldn't get data from the server. Give it another try in a bit.");
@@ -731,15 +1054,18 @@ async function analyze() {
   setLoading(false);
 }
 
-document.getElementById("search-form").addEventListener("submit", event => {
+document.getElementById("search-form").addEventListener("submit", function (event) {
   event.preventDefault();
   analyze();
 });
 
 pollutantSelect.addEventListener("change", updateHistorical);
 
-window.addEventListener("resize", () => {
-  Object.keys(chartConfigs).forEach(id => drawChart(id, chartConfigs[id]));
+window.addEventListener("resize", function () {
+  const ids = Object.keys(chartConfigs);
+  for (let i = 0; i < ids.length; i++) {
+    drawChart(ids[i], chartConfigs[ids[i]]);
+  }
 });
 
 
@@ -762,5 +1088,4 @@ if (window.AOS) {
   });
 }
 
-renderAqiScale();
 analyze();

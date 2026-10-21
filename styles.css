@@ -9,6 +9,10 @@
   --blue-dark: #1f5877;
   --orange: #d9732b;
 
+  --hero-1: #1f5877;
+  --hero-2: #2a6f97;
+  --hero-3: #4a93b5;
+
   --aqi-good: #3f9b5a;
   --aqi-moderate: #e0b72f;
   --aqi-usg: #e8872b;
@@ -16,6 +20,13 @@
   --aqi-very: #8a4f9e;
   --aqi-hazardous: #7a2f3f;
 }
+
+body[data-aqi="good"]      { --hero-1: #25693c; --hero-2: #3a8f55; --hero-3: #6cbb82; }
+body[data-aqi="moderate"]  { --hero-1: #7a5c08; --hero-2: #a97f12; --hero-3: #cfa22a; }
+body[data-aqi="usg"]       { --hero-1: #8f4a0c; --hero-2: #c46a1c; --hero-3: #e8933f; }
+body[data-aqi="unhealthy"] { --hero-1: #7d211d; --hero-2: #b03a35; --hero-3: #d0645e; }
+body[data-aqi="very"]      { --hero-1: #512264; --hero-2: #764088; --hero-3: #9d6bb0; }
+body[data-aqi="hazardous"] { --hero-1: #4a1722; --hero-2: #6b2536; --hero-3: #8e4659; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -37,7 +48,7 @@ body {
 
 /* header */
 .site-header {
-  background: linear-gradient(135deg, #1f5877 0%, #2a6f97 60%, #4a93b5 100%);
+  background: linear-gradient(135deg, var(--hero-1) 0%, var(--hero-2) 60%, var(--hero-3) 100%);
   color: #fff;
   padding: 34px 0 52px;
 }
@@ -245,6 +256,13 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 }
 
 /* pollutant cards */
+/* each pollutant keeps its own color so you can tell them apart in charts */
+:root {
+  --pol-ozone: #2f7fc1;
+  --pol-pm25:  #d6538f;
+  --pol-pm10:  #8a6a4a;
+}
+
 .aqi-good      { --cat: var(--aqi-good); }
 .aqi-moderate  { --cat: var(--aqi-moderate); }
 .aqi-usg       { --cat: var(--aqi-usg); }
@@ -259,8 +277,9 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 }
 
 .pollutant-card {
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--cat) 30%, white);
   border-top: 4px solid var(--cat);
+  background: color-mix(in srgb, var(--cat) 7%, white);
   border-radius: 10px;
   padding: 12px 14px 14px;
   animation: rise 0.55s ease both;
@@ -271,10 +290,17 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
   to   { opacity: 1; transform: none; }
 }
 
+.pollutant-card h3 { display: flex; align-items: center; gap: 7px; }
+.pol-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+.pol-name-ozone { color: var(--pol-ozone); }
+.pol-name-pm25  { color: var(--pol-pm25); }
+.pol-name-pm10  { color: var(--pol-pm10); }
+.pollutant-card h3 .pol-label { color: var(--ink); }
+
 .pollutant-note { font-weight: 400; font-size: 12.5px; color: var(--muted); margin-left: 4px; }
 
 .aqi-value {
-  margin: 8px 0 2px;
+  margin: 8px 0 6px;
   font-size: 34px;
   font-weight: 700;
   line-height: 1.1;
@@ -282,13 +308,22 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 
 .aqi-value span { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 4px; }
 
-.aqi-category { margin: 0; font-weight: 600; }
+.aqi-category {
+  display: inline-block;
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--cat) 18%, white);
+  color: color-mix(in srgb, var(--cat) 60%, black);
+}
 
 .aqi-category::before {
   content: "";
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--cat);
   margin-right: 6px;
@@ -307,6 +342,17 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .weather-item dt { font-size: 13px; color: var(--muted); }
 .weather-item dd { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; }
 .weather-item .unit { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.weather-item .temp-freezing { color: #1f4e9c; }
+.weather-item .temp-cold     { color: #2f7fc1; }
+.weather-item .temp-cool     { color: #2a9d9d; }
+.weather-item .temp-mild     { color: #3f9b5a; }
+.weather-item .temp-warm     { color: #e0922b; }
+.weather-item .temp-hot      { color: #d9622b; }
+.weather-item .temp-extreme  { color: #c23b35; }
+.weather-item .humid-dry     { color: #c98a2b; }
+.weather-item .humid-ok      { color: #3f9b5a; }
+.weather-item .humid-wet     { color: #2f7fc1; }
+
 .weather-item .not-reported { font-size: 15px; font-weight: 400; color: var(--muted); }
 
 /* charts */
@@ -315,18 +361,22 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 
 .axis-label { font-size: 11px; fill: var(--muted); }
 .grid-line  { stroke: #e4e8eb; stroke-width: 1; }
-.band-good     { fill: var(--aqi-good); opacity: 0.08; }
-.band-moderate { fill: var(--aqi-moderate); opacity: 0.1; }
-.band-label    { font-size: 10.5px; fill: #7b8792; }
+.band          { fill: var(--cat); opacity: 0.11; }
+.band-label    { font-size: 10.5px; fill: #6b7782; }
 .hover-line    { stroke: #8d99a5; stroke-width: 1; }
 
 .series-actual    { color: var(--blue); }
 .series-predicted { color: var(--orange); }
+.series-ozone     { color: var(--pol-ozone); }
+.series-pm25      { color: var(--pol-pm25); }
+.series-pm10      { color: var(--pol-pm10); }
+.tip-dot[class*="series-"] { background: currentColor; }
 .series-context   { color: #8d99a5; }
 
 .series-line { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; }
 .series-predicted .series-line { stroke-dasharray: 6 4; }
 .series-dot  { fill: currentColor; }
+.series-dot.colored { fill: var(--cat); stroke: #fff; stroke-width: 1; }
 .series-band { fill: currentColor; opacity: 0.14; stroke: none; }
 .series-area { fill: currentColor; opacity: 0.08; stroke: none; }
 
@@ -342,6 +392,16 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(20, 40, 60, 0.14);
   padding: 6px 10px;
+}
+
+.tip-line { display: flex; align-items: center; gap: 6px; }
+
+.tip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cat);
+  flex: none;
 }
 
 .legend {
@@ -365,7 +425,16 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .swatch.swatch-band { height: 10px; border: 0; background: currentColor; opacity: 0.25; }
 
 /* summary */
-.summary-main { margin: 0 0 8px; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.summary-main {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-left: 5px solid var(--cat, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cat, #888) 10%, white);
+}
 #summary-detail { margin: 0 0 18px; color: var(--muted); }
 .scale-heading { margin-bottom: 8px; }
 
@@ -379,7 +448,22 @@ h3 { margin: 0; font-size: 14px; font-weight: 600; }
   font-size: 13px;
 }
 
-.aqi-scale li { display: flex; align-items: center; gap: 7px; }
+.aqi-scale li { display: flex; align-items: center; gap: 7px; padding: 3px 6px; border-radius: 6px; }
+
+.aqi-scale li.is-current {
+  background: color-mix(in srgb, var(--cat) 16%, white);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat) 45%, white);
+}
+
+.now-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--cat);
+}
 .scale-swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--cat); flex: none; }
 .scale-range { color: var(--muted); margin-left: auto; white-space: nowrap; }
 

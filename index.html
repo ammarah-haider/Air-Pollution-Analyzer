@@ -92,6 +92,7 @@
           </div>
           <label class="inline-field">Pollutant
             <select id="pollutant-select">
+              <option value="ALL">All three</option>
               <option value="PM2.5">PM2.5</option>
               <option value="OZONE">Ozone</option>
               <option value="PM10">PM10</option>
@@ -102,6 +103,7 @@
         <div class="panel-body">
           <div class="chart" id="historical-chart"><div class="tooltip" hidden></div></div>
           <div class="legend" id="historical-legend"></div>
+          <p class="source-line" id="historical-source"></p>
         </div>
       </section>
 

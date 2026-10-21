@@ -47,7 +47,7 @@ Set `USE_SAMPLE_DATA` to `false` and it will call the backend instead. It expect
     "wind_speed_kmh": 20.376,
     "wind_direction_deg": 100
   },
-  "historical": { "PM2.5": [{ "date": "2026-10-01", "value": 41 }] },
+  "historical": { "source": "Open-Meteo", "series": { "PM2.5": [{ "date": "2026-10-01", "value": 41 }] } },
   "prediction": { "points": [{ "date": "2026-10-16", "value": 40, "low": 32, "high": 49 }] },
   "validation": { "metrics": { "mae": 0, "rmse": 0 }, "points": [{ "date": "2026-10-01", "actual": 41, "predicted": 38 }] }
 }
