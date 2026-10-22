@@ -4,28 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Air Pollution Analyzer &amp; Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
   <header class="site-header">
     <div class="wrap header-inner">
-      <div>
+      <div data-aos="fade-up">
         <h1>Air Pollution Analyzer &amp; Predictor</h1>
-        <p class="subtitle">Monitor current air quality, view historical trends, and explore future predictions.</p>
+        <p class="subtitle">See how the air looks right now, how it got here, and where it's headed.</p>
       </div>
-      <p class="data-mode" id="data-mode"></p>
+      <p class="data-mode" id="data-mode" data-aos="fade-up" data-aos-delay="100"></p>
     </div>
   </header>
 
   <main class="wrap" id="dashboard">
 
-    <!-- location and date range -->
-    <section class="controls" aria-label="Location and date range">
+    <section class="controls" aria-label="Location and date range" data-aos="fade-up">
       <form id="search-form" novalidate>
         <div class="field field-location">
           <label for="location-input">Location</label>
-          <input type="text" id="location-input" name="location" value="Dallas-Fort Worth, TX" list="location-options" autocomplete="off">
+          <input type="text" id="location-input" value="Dallas-Fort Worth, TX" list="location-options" autocomplete="off">
           <datalist id="location-options">
             <option value="Dallas-Fort Worth, TX"></option>
             <option value="Dallas, TX"></option>
@@ -38,25 +41,23 @@
         </div>
         <div class="field">
           <label for="start-date">From</label>
-          <input type="date" id="start-date" name="start" value="2026-09-01">
+          <input type="date" id="start-date">
         </div>
         <div class="field">
           <label for="end-date">To</label>
-          <input type="date" id="end-date" name="end" value="2026-09-30">
+          <input type="date" id="end-date">
         </div>
         <button type="submit" id="analyze-btn">Analyze</button>
       </form>
-      <p class="hint">Enter a city, ZIP code, or supported location. The current scope is the Dallas-Fort Worth area. The date range is used for the historical chart.</p>
+      <p class="hint">Right now we only cover the Dallas-Fort Worth area. The dates only change the history chart.</p>
       <p class="form-message" id="form-message" role="alert" hidden></p>
     </section>
 
-    <!-- current air quality + weather -->
     <div class="top-grid">
-
-      <section class="panel" id="air-quality-panel" aria-labelledby="aq-heading">
+      <section class="panel" id="air-quality-panel" aria-labelledby="aq-heading" data-aos="fade-up">
         <div class="panel-head">
           <div>
-            <h2 id="aq-heading">Current air quality</h2>
+            <h2 id="aq-heading">Air quality right now</h2>
             <p class="panel-sub" id="aq-location"></p>
           </div>
         </div>
@@ -67,11 +68,11 @@
         </div>
       </section>
 
-      <section class="panel" id="weather-panel" aria-labelledby="weather-heading">
+      <section class="panel" id="weather-panel" aria-labelledby="weather-heading" data-aos="fade-up" data-aos-delay="120">
         <div class="panel-head">
           <div>
-            <h2 id="weather-heading">Current weather</h2>
-            <p class="panel-sub">Features used as model inputs</p>
+            <h2 id="weather-heading">Weather right now</h2>
+            <p class="panel-sub">These feed into the model</p>
           </div>
         </div>
         <div class="state-message" hidden></div>
@@ -80,20 +81,18 @@
           <p class="source-line" id="weather-source"></p>
         </div>
       </section>
-
     </div>
 
-    <!-- historical + prediction charts -->
     <div class="chart-grid">
-
-      <section class="panel" id="historical-panel" aria-labelledby="historical-heading">
+      <section class="panel" id="historical-panel" aria-labelledby="historical-heading" data-aos="fade-up">
         <div class="panel-head">
           <div>
-            <h2 id="historical-heading">Historical air pollution</h2>
+            <h2 id="historical-heading">Past air quality</h2>
             <p class="panel-sub" id="historical-subtitle"></p>
           </div>
           <label class="inline-field">Pollutant
             <select id="pollutant-select">
+              <option value="ALL">All three</option>
               <option value="PM2.5">PM2.5</option>
               <option value="OZONE">Ozone</option>
               <option value="PM10">PM10</option>
@@ -104,35 +103,33 @@
         <div class="panel-body">
           <div class="chart" id="historical-chart"><div class="tooltip" hidden></div></div>
           <div class="legend" id="historical-legend"></div>
+          <p class="source-line" id="historical-source"></p>
         </div>
       </section>
 
-      <section class="panel" id="prediction-panel" aria-labelledby="prediction-heading">
+      <section class="panel" id="prediction-panel" aria-labelledby="prediction-heading" data-aos="fade-up" data-aos-delay="120">
         <div class="panel-head">
           <div>
-            <h2 id="prediction-heading">Future prediction</h2>
+            <h2 id="prediction-heading">What's coming</h2>
             <p class="panel-sub" id="prediction-subtitle"></p>
           </div>
-          <span class="badge">Prediction / Model Output</span>
+          <span class="badge">Model output</span>
         </div>
         <div class="state-message" hidden></div>
         <div class="panel-body">
-          <p class="notice" id="prediction-notice" hidden>Placeholder values for layout only. These are not real model results.</p>
+          <p class="notice" id="prediction-notice" hidden>These numbers are placeholders so we can see the layout. They are not real predictions.</p>
           <div class="chart" id="prediction-chart"><div class="tooltip" hidden></div></div>
           <div class="legend" id="prediction-legend"></div>
         </div>
       </section>
-
     </div>
 
-    <!-- model validation + summary -->
     <div class="bottom-grid">
-
-      <section class="panel" id="validation-panel" aria-labelledby="validation-heading">
+      <section class="panel" id="validation-panel" aria-labelledby="validation-heading" data-aos="fade-up">
         <div class="panel-head">
           <div>
             <h2 id="validation-heading">Actual vs. predicted</h2>
-            <p class="panel-sub" id="validation-subtitle">Model validation</p>
+            <p class="panel-sub" id="validation-subtitle">How close the model got</p>
           </div>
         </div>
         <div class="state-message" hidden></div>
@@ -143,42 +140,40 @@
         </div>
       </section>
 
-      <section class="panel" id="summary-panel" aria-labelledby="summary-heading">
+      <section class="panel" id="summary-panel" aria-labelledby="summary-heading" data-aos="fade-up" data-aos-delay="120">
         <div class="panel-head">
-          <div>
-            <h2 id="summary-heading">Air quality summary</h2>
-          </div>
+          <h2 id="summary-heading">In plain words</h2>
         </div>
         <div class="state-message" hidden></div>
         <div class="panel-body">
           <p class="summary-main" id="summary-main"></p>
           <p id="summary-detail"></p>
-          <h3 class="scale-heading">AQI categories</h3>
+          <h3 class="scale-heading">AQI scale</h3>
           <ul class="aqi-scale" id="aqi-scale"></ul>
         </div>
       </section>
-
     </div>
 
   </main>
 
   <footer class="site-footer">
-    <div class="wrap">
-      <p><strong>Data sources.</strong> Air quality: EPA AirNow, with data reported by the Texas Commission on Environmental Quality (TCEQ). Weather: NOAA / National Weather Service API. Predictions: machine learning model (in development).</p>
+    <div class="wrap" data-aos="fade-up" data-aos-offset="0">
+      <p><strong>Where the data comes from.</strong> Air quality is from EPA AirNow (reported by the Texas Commission on Environmental Quality). Weather is from the NOAA National Weather Service. Predictions come from our machine learning model, which is still being built.</p>
       <p class="mock-tools" id="mock-tools">
-        <label>Mockup only: simulate a response
+        <label>Testing only: fake a response
           <select id="simulate-select">
             <option value="normal">Normal data</option>
             <option value="no-data">No data for location</option>
-            <option value="no-weather">Weather unavailable</option>
+            <option value="no-weather">Weather down</option>
             <option value="no-model">Model not connected</option>
           </select>
         </label>
-        Choose an option, then click Analyze.
+        Pick one, then hit Analyze.
       </p>
     </div>
   </footer>
 
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
