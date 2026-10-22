@@ -1,5 +1,5 @@
 // set to false when backend is running
-const USE_SAMPLE_DATA = false;
+const USE_SAMPLE_DATA = true;
 const API_URL = "http://localhost:8000/dashboard";
 
 const locationInput = document.getElementById("location-input");
