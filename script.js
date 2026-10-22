@@ -1,4 +1,4 @@
-// Flip this to false once the backend is running.
+// set to false when backend is running
 const USE_SAMPLE_DATA = true;
 const API_URL = "http://localhost:8000/dashboard";
 
@@ -37,9 +37,6 @@ const aqiCategories = [
 const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const compass = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
-
-/* helpers */
-
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -56,10 +53,12 @@ function svgEl(name, attrs) {
 }
 
 function getCategory(aqi) {
-  for (let i = 0; i < aqiCategories.length; i++) {
-    if (aqi <= aqiCategories[i].max) return aqiCategories[i];
-  }
-  return aqiCategories[aqiCategories.length - 1];
+  if (aqi <= 50) return aqiCategories[0];
+  if (aqi <= 100) return aqiCategories[1];
+  if (aqi <= 150) return aqiCategories[2];
+  if (aqi <= 200) return aqiCategories[3];
+  if (aqi <= 300) return aqiCategories[4];
+  return aqiCategories[5];
 }
 
 function pollutantLabel(key) {
@@ -106,10 +105,10 @@ function fullDate(iso) {
 }
 
 function formatHour(hour) {
-  let h = hour % 12;
-  if (h === 0) h = 12;
-  const ampm = hour < 12 ? "AM" : "PM";
-  return h + ":00 " + ampm;
+  if (hour === 0) return "12:00 AM";
+  if (hour < 12) return hour + ":00 AM";
+  if (hour === 12) return "12:00 PM";
+  return (hour - 12) + ":00 PM";
 }
 
 function pseudoRandom(n) {
@@ -134,9 +133,6 @@ function countUp(node, target) {
   }
   requestAnimationFrame(tick);
 }
-
-
-/* sample data (only used while USE_SAMPLE_DATA is true) */
 
 function isSupportedLocation(text) {
   const t = text.toLowerCase();
@@ -262,9 +258,6 @@ function getSampleData(location, startDate, endDate) {
   return data;
 }
 
-
-/* talking to the backend */
-
 function formatObserved(iso) {
   const hour = parseInt((iso || "").slice(11, 13), 10);
   if (isNaN(hour)) return "recently";
@@ -275,25 +268,46 @@ function hasValue(v) {
   return v !== null && v !== undefined;
 }
 
-// The backend's /dashboard response is snake_case and metric.
-// This turns it into the shape the rest of this file draws from.
-// Anything the backend doesn't send yet just shows a "not connected" message.
+// changes backend data into what the page uses
+// anything missing shows not connected
 function fromBackend(raw, locationName) {
   const aq = raw.air_quality || {};
   const wx = raw.weather || {};
   const stamp = raw.timestamp || "";
 
-  const pairs = [["OZONE", "ozone_aqi"], ["PM2.5", "pm25_aqi"], ["PM10", "pm10_aqi"]];
+  const dateObserved = stamp.slice(0, 10);
+  const hourObserved = parseInt(stamp.slice(11, 13), 10);
   const pollutants = [];
-  for (let i = 0; i < pairs.length; i++) {
-    const aqi = aq[pairs[i][1]];
-    if (!hasValue(aqi)) continue;
+
+  if (hasValue(aq.ozone_aqi)) {
     pollutants.push({
-      parameter: pairs[i][0],
-      aqi: aqi,
-      category: getCategory(aqi).name,
-      dateObserved: stamp.slice(0, 10),
-      hourObserved: parseInt(stamp.slice(11, 13), 10),
+      parameter: "OZONE",
+      aqi: aq.ozone_aqi,
+      category: getCategory(aq.ozone_aqi).name,
+      dateObserved: dateObserved,
+      hourObserved: hourObserved,
+      timeZone: "CT",
+      agency: "TCEQ"
+    });
+  }
+  if (hasValue(aq.pm25_aqi)) {
+    pollutants.push({
+      parameter: "PM2.5",
+      aqi: aq.pm25_aqi,
+      category: getCategory(aq.pm25_aqi).name,
+      dateObserved: dateObserved,
+      hourObserved: hourObserved,
+      timeZone: "CT",
+      agency: "TCEQ"
+    });
+  }
+  if (hasValue(aq.pm10_aqi)) {
+    pollutants.push({
+      parameter: "PM10",
+      aqi: aq.pm10_aqi,
+      category: getCategory(aq.pm10_aqi).name,
+      dateObserved: dateObserved,
+      hourObserved: hourObserved,
       timeZone: "CT",
       agency: "TCEQ"
     });
@@ -325,11 +339,16 @@ function fromBackend(raw, locationName) {
     airQuality = { status: "ok", source: "EPA AirNow / TCEQ", pollutants: pollutants };
   }
 
+  let weatherSource = "NOAA / National Weather Service";
+  if (wx.source === "Open-Meteo") {
+    weatherSource = "Open-Meteo (the NWS station was out of date)";
+  }
+
   let weather = { status: "unavailable" };
   if (weatherValues.length > 0) {
     weather = {
       status: "ok",
-      source: "NOAA / National Weather Service",
+      source: weatherSource,
       station: wx.station_id || "KDFW",
       observedAt: formatObserved(wx.observed_at || stamp),
       values: weatherValues
@@ -390,9 +409,6 @@ async function getDashboardData(location, startDate, endDate) {
   return raw;
 }
 
-
-/* panel states */
-
 function setPanelState(panelId, title, detail) {
   const panel = document.getElementById(panelId);
   const stateBox = panel.querySelector(".state-message");
@@ -414,10 +430,6 @@ function setPanelState(panelId, title, detail) {
 const noDataTitle = "Not enough data for this location or date range";
 const noDataDetail = "Try a different location or dates and run it again.";
 
-
-/* updating the page */
-
-// the whole page leans toward the color of the worst pollutant
 function setPageColor(category) {
   if (category) {
     document.body.setAttribute("data-aqi", category.key);
@@ -475,7 +487,6 @@ function updateAirQuality(data) {
     ". Source: " + aq.source + ".";
 }
 
-// a little color on the weather numbers so hot days and low visibility stand out
 function weatherColorClass(item) {
   if (typeof item.value !== "number") return "";
 
@@ -553,9 +564,14 @@ function updateHistorical() {
     return;
   }
 
-  // which pollutants are we drawing?
-  let keys = [choice];
-  if (choice === "ALL") keys = ["OZONE", "PM2.5", "PM10"];
+  let keys = [];
+  if (choice === "ALL") {
+    keys.push("OZONE");
+    keys.push("PM2.5");
+    keys.push("PM10");
+  } else {
+    keys.push(choice);
+  }
 
   const lines = [];
   let firstDates = null;
@@ -635,11 +651,27 @@ function updatePrediction(data) {
   }
   setPanelState("prediction-panel", null);
   document.getElementById("prediction-notice").hidden = !p.isPlaceholder;
-  subtitle.textContent = "PM2.5 AQI, next " + p.points.length + " days";
+  subtitle.textContent = "Daily AQI (highest pollutant), next " + p.points.length + " days";
 
+  // model predicts the highest aqi so use highest of the three
   let history = [];
   if (data.historical && data.historical.status === "ok") {
-    history = data.historical.series["PM2.5"] || [];
+    const series = data.historical.series;
+    const ozone = series["OZONE"] || [];
+    const pm25 = series["PM2.5"] || [];
+    const pm10 = series["PM10"] || [];
+
+    let longest = pm25;
+    if (ozone.length > longest.length) longest = ozone;
+    if (pm10.length > longest.length) longest = pm10;
+
+    for (let i = 0; i < longest.length; i++) {
+      let biggest = 0;
+      if (ozone[i] && ozone[i].value > biggest) biggest = ozone[i].value;
+      if (pm25[i] && pm25[i].value > biggest) biggest = pm25[i].value;
+      if (pm10[i] && pm10[i].value > biggest) biggest = pm10[i].value;
+      history.push({ date: longest[i].date, value: biggest });
+    }
   }
   const recent = history.slice(-5);
 
@@ -666,7 +698,7 @@ function updatePrediction(data) {
 
   drawChart("prediction-chart", {
     labels: labels,
-    ariaLabel: "Line chart of predicted PM2.5 AQI for the next few days",
+    ariaLabel: "Line chart of predicted daily AQI for the next few days",
     series: [
       { name: "Recent actual", className: "series-context", values: recentValues },
       { name: "Prediction", className: "series-predicted", values: predValues, low: lows, high: highs }
@@ -756,7 +788,6 @@ function updateSummary(data) {
   }
   setPanelState("summary-panel", null);
 
-  // whichever pollutant is worst sets the overall rating
   let worst = aq.pollutants[0];
   for (let i = 1; i < aq.pollutants.length; i++) {
     if (aq.pollutants[i].aqi > worst.aqi) worst = aq.pollutants[i];
@@ -782,9 +813,6 @@ function renderDashboard(data) {
   updateSummary(data);
   if (window.AOS) AOS.refresh();
 }
-
-
-/* charts: plain SVG, no library */
 
 function linePath(values, xPos, yPos) {
   let d = "";
@@ -850,7 +878,6 @@ function drawChart(id, config) {
   const plotH = height - margin.top - margin.bottom;
   const count = config.labels.length;
 
-  // find the biggest number so the y axis fits it
   let maxValue = 0;
   for (let s = 0; s < config.series.length; s++) {
     const series = config.series[s];
@@ -877,7 +904,6 @@ function drawChart(id, config) {
 
   const svg = svgEl("svg", { width: width, height: height, role: "img", "aria-label": config.ariaLabel });
 
-  // one soft color band for each AQI level, so you can see where a line sits
   let bandBottom = 0;
   for (let i = 0; i < aqiCategories.length; i++) {
     const cat = aqiCategories[i];
@@ -1008,9 +1034,6 @@ function drawLegend(id, items) {
   }
 }
 
-
-/* form */
-
 function showFormMessage(text) {
   formMessage.textContent = text;
   formMessage.hidden = !text;
@@ -1067,9 +1090,6 @@ window.addEventListener("resize", function () {
     drawChart(ids[i], chartConfigs[ids[i]]);
   }
 });
-
-
-/* start */
 
 const today = toISO(new Date());
 endInput.value = today;

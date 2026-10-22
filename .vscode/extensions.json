@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "ritwickdey.liveserver",
+    "esbenp.prettier-vscode",
+    "humao.rest-client",
+    "mikestead.dotenv",
+    "eamodio.gitlens",
+    "usernamehw.errorlens"
+  ]
+}

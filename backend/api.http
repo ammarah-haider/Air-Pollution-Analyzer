@@ -1,0 +1,14 @@
+### Is the server up?
+GET http://localhost:8000/health
+
+### Current air quality
+GET http://localhost:8000/air-quality
+
+### Current weather
+GET http://localhost:8000/weather
+
+### History (dates are optional)
+GET http://localhost:8000/historical?start=2026-09-18&end=2026-10-18
+
+### Everything the dashboard uses
+GET http://localhost:8000/dashboard
