@@ -219,3 +219,47 @@ def test_today_comes_from_current_reading_when_daily_is_missing():
     assert len(values) == 7
     assert values[-1] == 90
     assert values[-2] == 41
+
+
+def test_old_nws_reading_is_replaced_by_open_meteo(monkeypatch):
+    import openmeteo_weather
+    from datetime import timedelta
+    main.cache._store.clear()
+
+    old_time = (datetime.now(main.CENTRAL) - timedelta(hours=9)).isoformat()
+
+    async def old_nws():
+        return {"properties": {"stationId": "KDFW", "timestamp": old_time,
+                               "temperature": {"value": 15, "qualityControl": "V"}}}
+
+    async def fake_open_meteo():
+        now = datetime.now(main.CENTRAL).strftime("%Y-%m-%dT%H:00")
+        return {"hourly": {"time": [now], "temperature_2m": [24.0], "dew_point_2m": [10.0],
+                           "relative_humidity_2m": [40], "surface_pressure": [1000.0],
+                           "visibility": [20000], "wind_speed_10m": [12.0],
+                           "wind_direction_10m": [180], "precipitation": [0]}}
+
+    monkeypatch.setattr(nws, "fetch_raw", old_nws)
+    monkeypatch.setattr(openmeteo_weather, "fetch_raw", fake_open_meteo)
+
+    import asyncio
+    data = asyncio.run(main.get_weather())
+    assert data["station_id"] == "Open-Meteo"
+    assert data["temperature_c"] == 24.0
+    assert data["pressure_pa"] == 100000.0
+
+
+def test_fresh_nws_reading_is_kept(monkeypatch):
+    from datetime import timedelta
+    main.cache._store.clear()
+    fresh = (datetime.now(main.CENTRAL) - timedelta(minutes=30)).isoformat()
+
+    async def fresh_nws():
+        return {"properties": {"stationId": "KDFW", "timestamp": fresh,
+                               "temperature": {"value": 22, "qualityControl": "V"}}}
+
+    monkeypatch.setattr(nws, "fetch_raw", fresh_nws)
+    import asyncio
+    data = asyncio.run(main.get_weather())
+    assert data["source"] == "NWS"
+    assert data["temperature_c"] == 22

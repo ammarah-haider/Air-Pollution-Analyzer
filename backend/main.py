@@ -14,6 +14,7 @@ import airnow  # noqa: E402  (needs .env loaded first)
 import cache   # noqa: E402
 import history  # noqa: E402
 import nws     # noqa: E402
+import openmeteo_weather  # noqa: E402
 import prediction  # noqa: E402
 
 log = logging.getLogger("uvicorn.error")
@@ -30,6 +31,7 @@ AIR_TTL = 10 * 60
 WEATHER_TTL = 5 * 60
 HISTORY_TTL = 60 * 60
 PREDICTION_TTL = 60 * 60
+MAX_WEATHER_AGE_HOURS = 3
 CENTRAL = ZoneInfo("America/Chicago")
 
 
@@ -46,9 +48,32 @@ async def get_weather():
     hit = cache.get("weather", WEATHER_TTL)
     if hit:
         return hit
-    data = nws.parse(await nws.fetch_raw())
+
+    data = None
+    try:
+        data = nws.parse(await nws.fetch_raw())
+    except Exception as err:
+        log.warning("NWS failed: %s", err)
+
+    # nws sometimes sends a reading that is hours old
+    if data is not None and is_old(data["observed_at"]):
+        log.warning("NWS reading is old (%s), using Open-Meteo", data["observed_at"])
+        data = None
+
+    if data is None:
+        raw = await openmeteo_weather.fetch_raw()
+        data = openmeteo_weather.parse(raw, datetime.now(CENTRAL))
+
     cache.put("weather", data)
     return data
+
+
+def is_old(observed_at):
+    if not observed_at:
+        return True
+    seen = datetime.fromisoformat(observed_at)
+    age = datetime.now(CENTRAL) - seen
+    return age > timedelta(hours=MAX_WEATHER_AGE_HOURS)
 
 
 async def get_history(start, end):

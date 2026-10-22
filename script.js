@@ -1,5 +1,5 @@
 // set to false when backend is running
-const USE_SAMPLE_DATA = true;
+const USE_SAMPLE_DATA = false;
 const API_URL = "http://localhost:8000/dashboard";
 
 const locationInput = document.getElementById("location-input");
@@ -339,11 +339,16 @@ function fromBackend(raw, locationName) {
     airQuality = { status: "ok", source: "EPA AirNow / TCEQ", pollutants: pollutants };
   }
 
+  let weatherSource = "NOAA / National Weather Service";
+  if (wx.source === "Open-Meteo") {
+    weatherSource = "Open-Meteo (the NWS station was out of date)";
+  }
+
   let weather = { status: "unavailable" };
   if (weatherValues.length > 0) {
     weather = {
       status: "ok",
-      source: "NOAA / National Weather Service",
+      source: weatherSource,
       station: wx.station_id || "KDFW",
       observedAt: formatObserved(wx.observed_at || stamp),
       values: weatherValues

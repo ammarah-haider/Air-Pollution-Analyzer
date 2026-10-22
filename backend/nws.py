@@ -13,11 +13,9 @@ async def fetch_raw():
         "User-Agent": os.getenv("NWS_USER_AGENT", "(cs4485-capstone-team-t6, team-email@utdallas.edu)"),
         "Accept": "application/geo+json",
     }
+    # no require_qc here, it returns readings that are hours old
     async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(NWS_URL, params={"require_qc": "true"}, headers=headers)
-        if response.status_code == 404:
-            # no checked reading yet, take newest
-            response = await client.get(NWS_URL, headers=headers)
+        response = await client.get(NWS_URL, headers=headers)
     response.raise_for_status()
     return response.json()
 
@@ -53,6 +51,7 @@ def parse(raw):
     cloud_base = layers[0].get("base", {}).get("value") if layers else None
 
     return {
+        "source": "NWS",
         "station_id": props.get("stationId") or props.get("station", "KDFW"),
         "observed_at": observed,
         "weather_condition": props.get("textDescription"),
