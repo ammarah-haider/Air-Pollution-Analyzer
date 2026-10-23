@@ -1,6 +1,13 @@
-// set to false when backend is running
-const USE_SAMPLE_DATA = true;
-const API_URL = "http://localhost:8000/dashboard";
+// set to true to use fake data
+const USE_SAMPLE_DATA = false;
+
+const BACKEND_ONLINE = "https://air-pollution-analyzer-ht42-eight.vercel.app";
+const BACKEND_LOCAL = "http://localhost:8000";
+
+let API_URL = BACKEND_ONLINE + "/dashboard";
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.protocol === "file:") {
+  API_URL = BACKEND_LOCAL + "/dashboard";
+}
 
 const locationInput = document.getElementById("location-input");
 const startInput = document.getElementById("start-date");
