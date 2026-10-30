@@ -317,3 +317,25 @@ def test_history_falls_back_to_open_meteo_when_airnow_fails(monkeypatch):
     assert out["source"].startswith("Open-Meteo")
     assert out["series"]["PM2.5"][1]["value"] == 45
 
+
+
+def test_validation_uses_next_day_rows_only():
+    import validation
+    rows = [
+        {"date": "2025-12-01", "actual": 40.0, "predicted": 50.0, "baseline": 30.0},
+        {"date": "2025-12-02", "actual": 60.0, "predicted": 50.0, "baseline": 40.0},
+    ]
+    out = validation.build(rows)
+    assert out["metrics"]["mae"] == 10.0
+    assert out["metrics"]["rmse"] == 10.0
+    assert out["metrics"]["baseline_mae"] == 15.0
+    assert out["start"] == "2025-12-01"
+    assert len(out["points"]) == 2
+
+
+def test_validation_reads_the_real_csv():
+    import validation
+    out = validation.get()
+    assert out["metrics"]["days"] == 360
+    assert out["metrics"]["mae"] == 13.2
+    assert len(out["points"]) == 30
