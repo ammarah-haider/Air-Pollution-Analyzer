@@ -16,6 +16,7 @@ import history  # noqa: E402
 import nws     # noqa: E402
 import openmeteo_weather  # noqa: E402
 import prediction  # noqa: E402
+import validation  # noqa: E402
 
 log = logging.getLogger("uvicorn.error")
 
@@ -168,6 +169,11 @@ async def predict():
     return await get_prediction(air)
 
 
+@app.get("/validation")
+async def validation_results():
+    return validation.get()
+
+
 @app.get("/dashboard")
 async def dashboard(start: date | None = None, end: date | None = None):
     today = datetime.now(CENTRAL).date()
@@ -195,6 +201,12 @@ async def dashboard(start: date | None = None, end: date | None = None):
         log.error("Prediction failed: %s", err)
         pred = None
 
+    try:
+        val = validation.get()
+    except Exception as err:
+        log.error("Validation failed: %s", err)
+        val = None
+
     air_quality = None
     if air:
         air_quality = {
@@ -210,5 +222,5 @@ async def dashboard(start: date | None = None, end: date | None = None):
         "weather": wx,
         "historical": hist,
         "prediction": pred,
-        "validation": None,
+        "validation": val,
     }

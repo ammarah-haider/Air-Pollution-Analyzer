@@ -27,9 +27,9 @@ The `.env` file has the AirNow key, so it's in `.gitignore`. Never commit it.
 - `GET /historical?start=2026-09-18&end=2026-10-18` - daily AQI for the history chart
 - `GET /dashboard` - everything the frontend needs in one response (accepts the same `start` and `end`)
 
-History comes from AirNow's daily route (Dallas-Fort Worth only, one value per pollutant per day, days with no reading come back as null so the chart lines match up). If AirNow fails or has too many empty days, it falls back to Open-Meteo's air quality API, which allows the last 92 days and needs no key. That one is modeled data, not station readings, so it can read higher than AirNow in summer. The dashboard says which source it used under the chart.
+History comes from AirNow's daily data for Dallas-Fort Worth, one number per pollutant per day. Days with no reading show up as empty so the lines on the chart still match up. If AirNow is down or has too many empty days, it uses Open-Meteo instead, which is a modeled estimate and can read higher than AirNow in summer. The dashboard says which one it used under the chart.
 
-`/dashboard` includes the prediction. `validation` is still `null`, so the frontend shows "not connected yet" for that panel. If one source is down, the others still come through.
+`/dashboard` includes the prediction and the validation. `validation` comes from `ml/walk_forward_predictions_2025.csv` (the ML team's test results), next-day forecasts only. It sends the last 30 days of the test year for the chart, plus MAE and RMSE for the whole year and the "tomorrow = today" baseline. You can also get it alone at `GET /validation`. If one source is down, the others still come through.
 
 ## Connecting the frontend
 

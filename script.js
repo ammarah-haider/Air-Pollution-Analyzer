@@ -385,7 +385,9 @@ function fromBackend(raw, locationName) {
     validation = {
       status: "ok",
       metrics: raw.validation.metrics || null,
-      points: raw.validation.points || []
+      points: raw.validation.points || [],
+      start: raw.validation.start,
+      end: raw.validation.end
     };
   }
 
@@ -732,33 +734,52 @@ function updateValidation(data) {
     return;
   }
   setPanelState("validation-panel", null);
-  document.getElementById("validation-subtitle").textContent = "Last " + v.points.length + " days, PM2.5 AQI";
+  if (v.start && v.end) {
+    document.getElementById("validation-subtitle").textContent =
+      "Next-day forecast vs real AQI (highest pollutant), " + shortDate(v.start) + " to " + fullDate(v.end);
+  } else {
+    document.getElementById("validation-subtitle").textContent = "Last " + v.points.length + " days, AQI";
+  }
 
   const dates = [];
   const actual = [];
   const predicted = [];
+  const baseline = [];
+  let hasBaseline = false;
   for (let i = 0; i < v.points.length; i++) {
     dates.push(v.points[i].date);
     actual.push(v.points[i].actual);
     predicted.push(v.points[i].predicted);
+    if (hasValue(v.points[i].baseline)) hasBaseline = true;
+    baseline.push(v.points[i].baseline);
   }
+
+  const lines = [];
+  const legend = [];
+  if (hasBaseline) {
+    lines.push({ name: "Tomorrow = today", className: "series-context", values: baseline });
+    legend.push({ name: "Tomorrow = today", className: "series-context" });
+  }
+  lines.push({ name: "Actual", className: "series-actual", values: actual });
+  lines.push({ name: "Predicted", className: "series-predicted", values: predicted });
+  legend.push({ name: "Actual", className: "series-actual" });
+  legend.push({ name: "Predicted", className: "series-predicted" });
 
   drawChart("validation-chart", {
     height: 220,
     labels: dates,
-    ariaLabel: "Line chart comparing actual and predicted PM2.5 AQI",
-    series: [
-      { name: "Actual", className: "series-actual", values: actual },
-      { name: "Predicted", className: "series-predicted", values: predicted }
-    ]
+    ariaLabel: "Line chart comparing actual and predicted AQI",
+    series: lines
   });
-  drawLegend("validation-legend", [
-    { name: "Actual", className: "series-actual" },
-    { name: "Predicted", className: "series-predicted" }
-  ]);
+  drawLegend("validation-legend", legend);
 
   if (v.metrics) {
-    note.textContent = "MAE: " + v.metrics.mae + "  |  RMSE: " + v.metrics.rmse;
+    let text = "MAE: " + v.metrics.mae + "  |  RMSE: " + v.metrics.rmse;
+    if (hasValue(v.metrics.baseline_mae)) {
+      text += "  |  Tomorrow = today MAE: " + v.metrics.baseline_mae;
+    }
+    text += ". Scores are for all of 2025 test data, so live results will be a bit worse.";
+    note.textContent = text;
   } else {
     note.textContent = "Placeholder: accuracy numbers (MAE and RMSE) will go here once the ML team finishes testing.";
   }
