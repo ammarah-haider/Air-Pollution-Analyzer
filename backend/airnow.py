@@ -118,3 +118,21 @@ def parse_daily(rows):
         if day not in highs or aqi > highs[day]:
             highs[day] = aqi
     return highs
+
+
+def parse_daily_by_pollutant(rows):
+    # same as parse_daily but keeps each pollutant apart
+    found = {"OZONE": {}, "PM2.5": {}, "PM10": {}}
+    for row in rows:
+        if row.get("reportingAreaName") != "Dallas-Fort Worth":
+            continue
+        name = row.get("parameterName")
+        if name not in found:
+            continue
+        aqi = row.get("dailyAQI")
+        day = row.get("dateObserved")
+        if aqi is None or aqi < 0 or not day:
+            continue
+        if day not in found[name] or aqi > found[name][day]:
+            found[name][day] = aqi
+    return found

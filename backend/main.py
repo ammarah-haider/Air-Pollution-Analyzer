@@ -76,7 +76,47 @@ def is_old(observed_at):
     return age > timedelta(hours=MAX_WEATHER_AGE_HOURS)
 
 
+async def get_airnow_history(start, end):
+    # real station readings, one value per day per pollutant
+    key = "airnow-history-" + start.isoformat() + "-" + end.isoformat()
+    rows = cache.get(key, HISTORY_TTL)
+    if rows is None:
+        rows = await airnow.fetch_daily_raw(start.isoformat(), end.isoformat())
+        cache.put(key, rows)
+    found = airnow.parse_daily_by_pollutant(rows)
+
+    days = []
+    day = start
+    while day <= end:
+        days.append(day.isoformat())
+        day = day + timedelta(days=1)
+
+    # every pollutant gets every day so the chart lines match up
+    series = {}
+    days_with_data = {}
+    for name in found:
+        points = []
+        for d in days:
+            value = found[name].get(d)
+            if value is not None:
+                days_with_data[d] = True
+            points.append({"date": d, "value": value})
+        series[name] = points
+
+    # too empty means airnow had a bad day, let the caller use the backup
+    if len(days_with_data) < len(days) / 2:
+        return None
+    return {"source": "EPA AirNow daily AQI (Dallas-Fort Worth)", "series": series}
+
+
 async def get_history(start, end):
+    try:
+        result = await get_airnow_history(start, end)
+        if result:
+            return result
+    except Exception as err:
+        log.warning("AirNow history failed, using Open-Meteo instead: %s", err)
+
     today = datetime.now(CENTRAL).date()
     days = (today - start).days + 1
     key = "history-" + str(days)

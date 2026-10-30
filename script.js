@@ -677,7 +677,7 @@ function updatePrediction(data) {
       if (ozone[i] && ozone[i].value > biggest) biggest = ozone[i].value;
       if (pm25[i] && pm25[i].value > biggest) biggest = pm25[i].value;
       if (pm10[i] && pm10[i].value > biggest) biggest = pm10[i].value;
-      history.push({ date: longest[i].date, value: biggest });
+      if (biggest > 0) history.push({ date: longest[i].date, value: biggest });
     }
   }
   const recent = history.slice(-5);

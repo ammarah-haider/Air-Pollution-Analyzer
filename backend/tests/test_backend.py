@@ -263,3 +263,57 @@ def test_fresh_nws_reading_is_kept(monkeypatch):
     data = asyncio.run(main.get_weather())
     assert data["source"] == "NWS"
     assert data["temperature_c"] == 22
+
+
+def test_airnow_daily_keeps_each_pollutant_apart():
+    rows = [
+        {"dateObserved": "2026-10-21", "reportingAreaName": "Dallas-Fort Worth", "parameterName": "PM2.5", "dailyAQI": 64},
+        {"dateObserved": "2026-10-21", "reportingAreaName": "Dallas-Fort Worth", "parameterName": "OZONE", "dailyAQI": 105},
+        {"dateObserved": "2026-10-21", "reportingAreaName": "Houston-Galveston-Brazoria", "parameterName": "OZONE", "dailyAQI": 115},
+        {"dateObserved": "2026-10-20", "reportingAreaName": "Dallas-Fort Worth", "parameterName": "PM10", "dailyAQI": 33},
+    ]
+    out = airnow.parse_daily_by_pollutant(rows)
+    assert out["OZONE"] == {"2026-10-21": 105}
+    assert out["PM2.5"] == {"2026-10-21": 64}
+    assert out["PM10"] == {"2026-10-20": 33}
+
+
+def test_history_uses_airnow_and_lines_up_the_days(monkeypatch):
+    from datetime import date
+    import asyncio
+    main.cache._store.clear()
+
+    async def fake_daily(start, end):
+        rows = []
+        for day in ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"]:
+            rows.append({"dateObserved": day, "reportingAreaName": "Dallas-Fort Worth", "parameterName": "OZONE", "dailyAQI": 50})
+        rows.append({"dateObserved": "2026-10-19", "reportingAreaName": "Dallas-Fort Worth", "parameterName": "PM2.5", "dailyAQI": 60})
+        return rows
+
+    monkeypatch.setattr(main.airnow, "fetch_daily_raw", fake_daily)
+    out = asyncio.run(main.get_history(date(2026, 10, 18), date(2026, 10, 21)))
+    assert out["source"].startswith("EPA AirNow")
+    assert len(out["series"]["OZONE"]) == 4
+    assert len(out["series"]["PM2.5"]) == 4
+    assert out["series"]["PM2.5"][0]["value"] is None
+    assert out["series"]["PM2.5"][1]["value"] == 60
+
+
+def test_history_falls_back_to_open_meteo_when_airnow_fails(monkeypatch):
+    from datetime import date
+    import asyncio
+    main.cache._store.clear()
+
+    async def broken(start, end):
+        raise RuntimeError("airnow down")
+
+    async def fake_raw(days):
+        return {"hourly": {"time": ["2026-10-20T01:00", "2026-10-21T01:00"],
+                           "us_aqi_pm2_5": [40, 45], "us_aqi_ozone": [30, 35], "us_aqi_pm10": [10, 12]}}
+
+    monkeypatch.setattr(main.airnow, "fetch_daily_raw", broken)
+    monkeypatch.setattr(main.history, "fetch_raw", fake_raw)
+    out = asyncio.run(main.get_history(date(2026, 10, 20), date(2026, 10, 21)))
+    assert out["source"].startswith("Open-Meteo")
+    assert out["series"]["PM2.5"][1]["value"] == 45
+
