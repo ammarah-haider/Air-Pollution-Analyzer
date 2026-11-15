@@ -109,29 +109,23 @@ def test_dashboard_includes_history(monkeypatch):
 def fake_open_meteo():
     import math
     from datetime import datetime, timedelta, timezone
-    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-    times = [(start + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(11 * 24)]
+    import features
+    end = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    start = end - timedelta(days=2)
+    times = [(start + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(3 * 24)]
     n = len(times)
-    weather = {"time": times,
-               "temperature_2m": [70 + 15 * math.sin(i / 3.8) for i in range(n)],
-               "relative_humidity_2m": [55] * n, "dew_point_2m": [58] * n, "precipitation": [0] * n,
-               "cloud_cover": [30] * n, "pressure_msl": [1015] * n, "wind_speed_10m": [9] * n,
-               "wind_direction_10m": [170] * n, "wind_gusts_10m": [18] * n,
-               "shortwave_radiation": [max(0, 600 * math.sin(i / 3.8)) for i in range(n)]}
-    air = {"time": times[:3 * 24], "pm2_5": [12] * (3 * 24), "ozone": [80] * (3 * 24),
-           "nitrogen_dioxide": [10] * (3 * 24), "aerosol_optical_depth": [0.1] * (3 * 24)}
+    weather = {"time": times}
+    for name in features.WEATHER_VARS:
+        weather[name] = [50 + 10 * math.sin(i / 3.8) for i in range(n)]
+    air = {"time": times}
+    for name in features.AIR_VARS:
+        air[name] = [12.0] * n
     return {"weather": {"hourly": weather}, "air": {"hourly": air}}
-
-
-def fake_recent():
-    from datetime import datetime, timedelta
-    today = datetime.now(main.CENTRAL).date()
-    return {str(today - timedelta(days=i)): 50 + i for i in range(8)}
 
 
 def test_prediction_returns_seven_days():
     import prediction
-    out = prediction.build(fake_open_meteo(), fake_recent(), {"ozone_aqi": 44, "pm25_aqi": 60, "pm10_aqi": 22})
+    out = prediction.build(fake_open_meteo())
     assert len(out["points"]) == 7
     first = out["points"][0]
     assert first["days_ahead"] == 1
@@ -139,18 +133,49 @@ def test_prediction_returns_seven_days():
     assert out["points"][6]["confidence"] == "low"
 
 
-def test_prediction_needs_seven_days_of_aqi():
-    import prediction
+def test_model_row_has_all_82_numbers_in_order():
+    import features
+    raw = fake_open_meteo()
+    row = features.build_row(raw["weather"]["hourly"], raw["air"]["hourly"], datetime.utcnow())
+    names = features.info()["feature_columns"]
+    assert len(row) == 82
+    assert len(names) == 82
+    # census comes last, and the first one is the population of dallas county
+    assert names[42] == "census_B01003_001E"
+    assert row[42] == 2661397.0
+
+
+def test_empty_columns_become_zero():
+    import features
+    raw = fake_open_meteo()
+    raw["air"]["hourly"]["carbon_dioxide"] = [None] * len(raw["air"]["hourly"]["time"])
+    row = features.build_row(raw["weather"]["hourly"], raw["air"]["hourly"], datetime.utcnow())
+    names = features.info()["feature_columns"]
+    co2 = names.index("carbon_dioxide (ppm)")
+    assert row[co2] == 0.0
+
+
+def test_prediction_needs_enough_weather_hours():
+    import features
     import pytest
+    raw = fake_open_meteo()
+    short_wx = {k: v[:5] for k, v in raw["weather"]["hourly"].items()}
+    short_aq = {k: v[:5] for k, v in raw["air"]["hourly"].items()}
     with pytest.raises(ValueError):
-        prediction.build(fake_open_meteo(), {}, None)
+        features.build_row(short_wx, short_aq, datetime.utcnow())
+
+
+def test_all_seven_model_files_load():
+    import predict
+    for day in range(1, 8):
+        assert predict._model(day).num_feature() == 82
 
 
 def test_dashboard_includes_prediction(monkeypatch):
     import prediction
 
     async def fake_run(air_now=None):
-        return prediction.build(fake_open_meteo(), fake_recent(), air_now)
+        return prediction.build(fake_open_meteo(), air_now)
 
     monkeypatch.setattr(prediction, "run", fake_run)
     main.cache._store.clear()
@@ -208,17 +233,6 @@ def test_airnow_daily_picks_dfw_and_highest_pollutant():
         {"dateObserved": "2026-10-20", "reportingAreaName": "Dallas-Fort Worth", "parameterName": "OZONE", "dailyAQI": 71},
     ]
     assert airnow.parse_daily(rows) == {"2026-10-21": 105, "2026-10-20": 71}
-
-
-def test_today_comes_from_current_reading_when_daily_is_missing():
-    import prediction
-    import pandas as pd
-    today = pd.Timestamp(datetime.now(main.CENTRAL).date())
-    recent = {str((today - pd.Timedelta(days=i)).date()): 40 + i for i in range(1, 7)}
-    values = prediction.last_seven(recent, today, {"ozone_aqi": 90, "pm25_aqi": 20}, "AirNow daily AQI")
-    assert len(values) == 7
-    assert values[-1] == 90
-    assert values[-2] == 41
 
 
 def test_old_nws_reading_is_replaced_by_open_meteo(monkeypatch):

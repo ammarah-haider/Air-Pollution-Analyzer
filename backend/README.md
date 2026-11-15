@@ -56,20 +56,21 @@ They use the sample responses from the spec, so no API key or internet is needed
 
 ## Next up
 
-- ML model prediction endpoint once the model's input and output are set
-- Deploy
+- Retrain the model with 2022 and 2023 data, and swap in the new files
 
 ## Prediction (ML model)
 
-`GET /prediction` (also inside `/dashboard`) returns the next 7 days of predicted AQI from the ML team's XGBoost models.
+`GET /prediction` (also inside `/dashboard`) returns the next 7 days of predicted AQI from the ML team's LightGBM models.
 
-- The model files and their code are in `backend/ml/` (straight from their `ml_eval.zip`). Don't edit them; ask the ML team and drop in the new files.
-- `prediction.py` pulls Open-Meteo weather and air quality (°F, mph, inches, as `ml/FEATURE_SPEC.md` says), builds the 34 features, and calls `predict_week()`.
-- The likely range on each day is just the model's typical miss from their 2025 test (about 13 AQI on day 1, about 16 after that). It is not a statistical interval.
-- Days 4 to 7 are marked `confidence: "low"` because weather forecasts get worse that far out.
-- The last 7 daily AQIs come from AirNow's daily route (`fetch_daily_raw` in `airnow.py`, Dallas-Fort Worth only, highest pollutant each day). If that fails, it falls back to Open-Meteo, which runs about 15 points high in summer. The response says which one it used in `aqi_input`. Today's number is the current AirNow reading, since the daily one isn't final until tomorrow.
-- The first call is slower (two Open-Meteo requests plus loading the model). Results are cached for an hour.
-- Needs `pip install -r requirements.txt` again (adds xgboost, scikit-learn, pandas, numpy).
+- The model files are in `backend/ml/lgbm_model/` (7 models, one for each day ahead, plus `features.json` with the 82 inputs in order). Don't edit them; ask the ML team and drop in the new files.
+- `prediction.py` pulls the last 24 hours of Open-Meteo weather and air quality, takes the average of each column (that is how the model was trained), adds the Dallas County census numbers (`census_2025.json`), and calls `predict_week()`.
+- Empty columns become 0, same as in training.
+- The likely range on each day is just the model's typical miss from the ML team's test (about 8 AQI on day 1, 12 to 15 after that). It is not a statistical interval.
+- Days 4 to 7 are marked `confidence: "low"`.
+- This model does not use today's AQI, so AirNow is not needed for the prediction anymore.
+- The model was trained on Open-Meteo's own AQI number, not the EPA/AirNow one, so it can be a bit different from the AirNow numbers on the site.
+- The first call is slower (two Open-Meteo requests plus loading the models). Results are cached for an hour.
+- Needs `pip install -r requirements.txt` again (adds lightgbm, removes xgboost and scikit-learn).
 
 ## Notes from the data team
 
