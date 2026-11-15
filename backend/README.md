@@ -70,7 +70,8 @@ They use the sample responses from the spec, so no API key or internet is needed
 - This model does not use today's AQI, so AirNow is not needed for the prediction anymore.
 - The model was trained on Open-Meteo's own AQI number, not the EPA/AirNow one, so it can be a bit different from the AirNow numbers on the site.
 - The first call is slower (two Open-Meteo requests plus loading the models). Results are cached for an hour.
-- Needs `pip install -r requirements.txt` again (adds lightgbm, removes xgboost and scikit-learn).
+- `ml/predict.py` reads the LightGBM `.txt` files itself, so the server does not need the lightgbm package (it needs a system library that Vercel does not have). It matches the lightgbm package exactly.
+- Needs `pip install -r requirements.txt` again (removes xgboost and scikit-learn).
 
 ## Notes from the data team
 
