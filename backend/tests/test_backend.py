@@ -133,25 +133,25 @@ def test_prediction_returns_seven_days():
     assert out["points"][6]["confidence"] == "low"
 
 
-def test_model_row_has_all_82_numbers_in_order():
+def test_model_row_has_all_80_numbers_in_order():
     import features
     raw = fake_open_meteo()
     row = features.build_row(raw["weather"]["hourly"], raw["air"]["hourly"], datetime.utcnow())
     names = features.info()["feature_columns"]
-    assert len(row) == 82
-    assert len(names) == 82
+    assert len(row) == 80
+    assert len(names) == 80
     # census comes last, and the first one is the population of dallas county
-    assert names[42] == "census_B01003_001E"
-    assert row[42] == 2661397.0
+    assert names[40] == "census_B01003_001E"
+    assert row[40] == 2661397.0
 
 
 def test_empty_columns_become_zero():
     import features
     raw = fake_open_meteo()
-    raw["air"]["hourly"]["carbon_dioxide"] = [None] * len(raw["air"]["hourly"]["time"])
+    raw["air"]["hourly"]["dust"] = [None] * len(raw["air"]["hourly"]["time"])
     row = features.build_row(raw["weather"]["hourly"], raw["air"]["hourly"], datetime.utcnow())
     names = features.info()["feature_columns"]
-    co2 = names.index("carbon_dioxide (ppm)")
+    co2 = names.index("dust")
     assert row[co2] == 0.0
 
 
@@ -168,7 +168,7 @@ def test_prediction_needs_enough_weather_hours():
 def test_all_seven_model_files_load():
     import predict
     for day in range(1, 8):
-        assert predict._model(day)["n_features"] == 82
+        assert predict._model(day)["n_features"] == 80
 
 
 def test_dashboard_includes_prediction(monkeypatch):
@@ -358,7 +358,7 @@ def test_validation_reads_the_real_csv():
 def test_model_gives_the_same_answers_as_lightgbm():
     # a real day from the ML team's data, and what the lightgbm package gave for it
     import predict
-    row = [82.9792, 64.5417, 68.9, 87.6958, 1.4458, 0.0, 0.0, 0.0, 2.6667, 1003.9417, 983.4792, 86.5, 3.6667, 6.25, 84.5, 7.3583, 13.075, 210.375, 195.7917, 18.6542, 241.625, 123.9167, 117.7083, 189.6958, 1652.6504, 0.0088, 0.1952, 84.0125, 1908.3553, 0.5833, 8.2125, 10.7292, 110.5417, 6.3917, 2.2208, 201.2083, 458.625, 1405.4167, 4.375, 0.2783, 1.8333, 2.5583, 2661397.0, 1348478.0, 953597.0, 147877.0, 23583.0, 8044.0, 1558.0, 3132.0, 19641.0, 12108.0, 178938.0, 32401930.0, 1169540.0, 66282.0, 25933.0, 1014485.0, 76153.0, 387649.0, 343038.0, 134779.0, 72866.0, 1099707.0, 85222.0, 513512.0, 500973.0, 553316.0, 44444.0, 21097.0, 49102.0, 77294.0, 80432.0, 69189.0, 190423.0, 14003.0, 1014485.0, 380151.0, 5250.0, 619113.0, 328.0, 257.0]
-    expected = [66.3, 61.8, 62.1, 52.8, 56.6, 53.2, 56.7]
+    row = [82.9792, 64.5417, 68.9, 87.6958, 1.4458, 0.0, 0.0, 0.0, 2.6667, 1003.9417, 983.4792, 86.5, 3.6667, 6.25, 84.5, 7.3583, 13.075, 210.375, 195.7917, 18.6542, 241.625, 123.9167, 117.7083, 189.6958, 1652.6504, 0.0088, 0.1952, 84.0125, 1908.3553, 0.5833, 8.2125, 10.7292, 110.5417, 6.3917, 2.2208, 201.2083, 4.375, 0.2783, 1.8333, 2.5583, 2661397.0, 1348478.0, 953597.0, 147877.0, 23583.0, 8044.0, 1558.0, 3132.0, 19641.0, 12108.0, 178938.0, 32401930.0, 1169540.0, 66282.0, 25933.0, 1014485.0, 76153.0, 387649.0, 343038.0, 134779.0, 72866.0, 1099707.0, 85222.0, 513512.0, 500973.0, 553316.0, 44444.0, 21097.0, 49102.0, 77294.0, 80432.0, 69189.0, 190423.0, 14003.0, 1014485.0, 380151.0, 5250.0, 619113.0, 328.0, 257.0]
+    expected = [69.0, 65.3, 72.4, 67.7, 66.5, 60.4, 70.1]
     for day in range(1, 8):
         assert predict.predict(row, day) == expected[day - 1]

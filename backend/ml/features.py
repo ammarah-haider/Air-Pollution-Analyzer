@@ -28,8 +28,7 @@ WEATHER_VARS = [
 # open-meteo air quality columns
 AIR_VARS = [
     "pm2_5", "pm10", "ozone", "nitrogen_dioxide", "sulphur_dioxide", "carbon_monoxide",
-    "carbon_dioxide", "methane", "dust", "aerosol_optical_depth", "uv_index",
-    "uv_index_clear_sky",
+    "dust", "aerosol_optical_depth", "uv_index", "uv_index_clear_sky",
 ]
 
 _info = None
