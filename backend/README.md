@@ -62,7 +62,7 @@ They use the sample responses from the spec, so no API key or internet is needed
 
 `GET /prediction` (also inside `/dashboard`) returns the next 7 days of predicted AQI from the ML team's LightGBM models.
 
-- The model files are in `backend/ml/lgbm_model/` (7 models, one for each day ahead, plus `features.json` with the 82 inputs in order). Don't edit them; ask the ML team and drop in the new files.
+- The model files are in `backend/ml/lgbm_model/` (7 models, one for each day ahead, plus `features.json` with the 80 inputs in order). Don't edit them; ask the ML team and drop in the new files.
 - `prediction.py` pulls the last 24 hours of Open-Meteo weather and air quality, takes the average of each column (that is how the model was trained), adds the Dallas County census numbers (`census_2025.json`), and calls `predict_week()`.
 - Empty columns become 0, same as in training.
 - The likely range on each day is just the model's typical miss from the ML team's test (about 8 AQI on day 1, 12 to 15 after that). It is not a statistical interval.
